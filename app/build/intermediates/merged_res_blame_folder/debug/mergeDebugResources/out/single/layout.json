@@ -1,0 +1,62 @@
+[
+    {
+        "merged": "hu.kektura.app-mergeDebugResources-54:/layout/item_segment.xml",
+        "source": "hu.kektura.app-main-57:/layout/item_segment.xml"
+    },
+    {
+        "merged": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-mergeDebugResources-54:\\layout\\fragment_stamp_detail.xml",
+        "source": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-main-57:\\layout\\fragment_stamp_detail.xml"
+    },
+    {
+        "merged": "hu.kektura.app-mergeDebugResources-54:/layout/item_stamp_group.xml",
+        "source": "hu.kektura.app-main-57:/layout/item_stamp_group.xml"
+    },
+    {
+        "merged": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-mergeDebugResources-54:\\layout\\item_stamp_group.xml",
+        "source": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-main-57:\\layout\\item_stamp_group.xml"
+    },
+    {
+        "merged": "hu.kektura.app-mergeDebugResources-54:/layout/fragment_stamp_detail.xml",
+        "source": "hu.kektura.app-main-57:/layout/fragment_stamp_detail.xml"
+    },
+    {
+        "merged": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-mergeDebugResources-54:\\layout\\fragment_belyegzok.xml",
+        "source": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-main-57:\\layout\\fragment_belyegzok.xml"
+    },
+    {
+        "merged": "hu.kektura.app-mergeDebugResources-54:/layout/item_stamp_point.xml",
+        "source": "hu.kektura.app-main-57:/layout/item_stamp_point.xml"
+    },
+    {
+        "merged": "hu.kektura.app-mergeDebugResources-54:/layout/fragment_map.xml",
+        "source": "hu.kektura.app-main-57:/layout/fragment_map.xml"
+    },
+    {
+        "merged": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-mergeDebugResources-54:\\layout\\fragment_beallitasok.xml",
+        "source": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-main-57:\\layout\\fragment_beallitasok.xml"
+    },
+    {
+        "merged": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-mergeDebugResources-54:\\layout\\item_stamp_point.xml",
+        "source": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-main-57:\\layout\\item_stamp_point.xml"
+    },
+    {
+        "merged": "hu.kektura.app-mergeDebugResources-54:/layout/fragment_stamps.xml",
+        "source": "hu.kektura.app-main-57:/layout/fragment_stamps.xml"
+    },
+    {
+        "merged": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-mergeDebugResources-54:\\layout\\activity_main.xml",
+        "source": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-main-57:\\layout\\activity_main.xml"
+    },
+    {
+        "merged": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-mergeDebugResources-54:\\layout\\fragment_terkep.xml",
+        "source": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-main-57:\\layout\\fragment_terkep.xml"
+    },
+    {
+        "merged": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-mergeDebugResources-54:\\layout\\item_segment.xml",
+        "source": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-main-57:\\layout\\item_segment.xml"
+    },
+    {
+        "merged": "hu.kektura.app-mergeDebugResources-54:/layout/fragment_settings.xml",
+        "source": "hu.kektura.app-main-57:/layout/fragment_settings.xml"
+    }
+]

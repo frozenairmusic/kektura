@@ -1,0 +1,35 @@
+<navigation
+xmlns:android="http://schemas.android.com/apk/res/android"
+xmlns:app="http://schemas.android.com/apk/res-auto"
+android:id="@+id/nav_graph"
+app:startDestination="@id/mapFragment" >
+<fragment
+    android:id="@+id/mapFragment"
+    android:name="hu.kektura.app.ui.map.MapFragment"
+    android:label="@string/nav_map" />
+<fragment
+    android:id="@+id/stampsFragment"
+    android:name="hu.kektura.app.ui.stamps.StampsFragment"
+    android:label="@string/nav_stamps" >
+
+    <action
+        android:id="@+id/action_stamps_to_stampDetail"
+        app:destination="@id/stampDetailFragment" />
+
+</fragment>
+<fragment
+    android:id="@+id/stampDetailFragment"
+    android:name="hu.kektura.app.ui.stampdetail.StampDetailFragment"
+    android:label="@string/nav_stamp_detail" >
+
+    <argument
+        android:name="segmentId"
+        android:defaultValue="1"
+        app:argType="integer" />
+
+</fragment>
+<fragment
+    android:id="@+id/settingsFragment"
+    android:name="hu.kektura.app.ui.settings.SettingsFragment"
+    android:label="@string/nav_settings" />
+</navigation>

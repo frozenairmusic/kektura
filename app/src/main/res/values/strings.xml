@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Kéktúra</string>
+
+    <!-- Navigation -->
+    <string name="nav_map">Térkép</string>
+    <string name="nav_stamps">Bélyegzők</string>
+    <string name="nav_settings">Beállítások</string>
+    <string name="nav_stamp_detail">Bélyegzők</string>
+
+    <!-- Map screen -->
+    <string name="map_placeholder">A térkép hamarosan elérhető</string>
+
+    <!-- Stamps screen -->
+    <string name="stamps_empty">Nincs elérhető bélyegző – a letöltés folyamatban van.</string>
+
+    <!-- Settings screen -->
+    <string name="trail_selection_title">Túraútvonalak</string>
+    <string name="trail_selection_hint">Válassz egyet vagy többet</string>
+    <string name="trail_okt">Országos Kéktúra</string>
+    <string name="trail_del_dunantuli">Rockenbauer Pál Dél-Dunántúli Kéktúra</string>
+    <string name="trail_alfoldi">Alföldi Kéktúra</string>
+
+    <!-- Stamp detail -->
+    <string name="stamp_status">Bélyegző állapota</string>
+    <string name="collect_all_stamps">Összes bélyegző megjelölése</string>
+    <string name="expand_group">Csoport kinyitása / összecsukása</string>
+</resources>

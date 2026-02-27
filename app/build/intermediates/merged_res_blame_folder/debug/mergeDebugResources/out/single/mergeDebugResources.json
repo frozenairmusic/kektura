@@ -1,0 +1,122 @@
+[
+    {
+        "merged": "hu.kektura.app-debug-55:/layout_item_stamp_point.xml.flat",
+        "source": "hu.kektura.app-main-57:/layout/item_stamp_point.xml"
+    },
+    {
+        "merged": "hu.kektura.app-debug-55:/layout_fragment_map.xml.flat",
+        "source": "hu.kektura.app-main-57:/layout/fragment_map.xml"
+    },
+    {
+        "merged": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-debug-55:\\drawable_ic_launcher_foreground.xml.flat",
+        "source": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-main-57:\\drawable\\ic_launcher_foreground.xml"
+    },
+    {
+        "merged": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-debug-55:\\mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-main-57:\\mipmap-anydpi-v26\\ic_launcher.xml"
+    },
+    {
+        "merged": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-debug-55:\\layout_fragment_belyegzok.xml.flat",
+        "source": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-main-57:\\layout\\fragment_belyegzok.xml"
+    },
+    {
+        "merged": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-debug-55:\\drawable_ic_settings.xml.flat",
+        "source": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-main-57:\\drawable\\ic_settings.xml"
+    },
+    {
+        "merged": "hu.kektura.app-debug-55:/layout_fragment_stamps.xml.flat",
+        "source": "hu.kektura.app-main-57:/layout/fragment_stamps.xml"
+    },
+    {
+        "merged": "hu.kektura.app-debug-55:/layout_fragment_settings.xml.flat",
+        "source": "hu.kektura.app-main-57:/layout/fragment_settings.xml"
+    },
+    {
+        "merged": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-debug-55:\\drawable_ic_launcher_background.xml.flat",
+        "source": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-main-57:\\drawable\\ic_launcher_background.xml"
+    },
+    {
+        "merged": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-debug-55:\\drawable_ic_stamp_collected.xml.flat",
+        "source": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-main-57:\\drawable\\ic_stamp_collected.xml"
+    },
+    {
+        "merged": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-debug-55:\\layout_fragment_terkep.xml.flat",
+        "source": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-main-57:\\layout\\fragment_terkep.xml"
+    },
+    {
+        "merged": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-debug-55:\\layout_item_stamp_point.xml.flat",
+        "source": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-main-57:\\layout\\item_stamp_point.xml"
+    },
+    {
+        "merged": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-debug-55:\\layout_item_segment.xml.flat",
+        "source": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-main-57:\\layout\\item_segment.xml"
+    },
+    {
+        "merged": "hu.kektura.app-debug-55:/layout_item_stamp_group.xml.flat",
+        "source": "hu.kektura.app-main-57:/layout/item_stamp_group.xml"
+    },
+    {
+        "merged": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-debug-55:\\drawable_ic_stamp_pending.xml.flat",
+        "source": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-main-57:\\drawable\\ic_stamp_pending.xml"
+    },
+    {
+        "merged": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-debug-55:\\layout_fragment_stamp_detail.xml.flat",
+        "source": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-main-57:\\layout\\fragment_stamp_detail.xml"
+    },
+    {
+        "merged": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-debug-55:\\drawable_badge_background.xml.flat",
+        "source": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-main-57:\\drawable\\badge_background.xml"
+    },
+    {
+        "merged": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-debug-55:\\layout_activity_main.xml.flat",
+        "source": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-main-57:\\layout\\activity_main.xml"
+    },
+    {
+        "merged": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-debug-55:\\layout_fragment_beallitasok.xml.flat",
+        "source": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-main-57:\\layout\\fragment_beallitasok.xml"
+    },
+    {
+        "merged": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-debug-55:\\drawable_ic_map.xml.flat",
+        "source": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-main-57:\\drawable\\ic_map.xml"
+    },
+    {
+        "merged": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-debug-55:\\layout_item_stamp_group.xml.flat",
+        "source": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-main-57:\\layout\\item_stamp_group.xml"
+    },
+    {
+        "merged": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-debug-55:\\menu_bottom_nav_menu.xml.flat",
+        "source": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-main-57:\\menu\\bottom_nav_menu.xml"
+    },
+    {
+        "merged": "hu.kektura.app-debug-55:/menu_bottom_nav_menu.xml.flat",
+        "source": "hu.kektura.app-main-57:/menu/bottom_nav_menu.xml"
+    },
+    {
+        "merged": "hu.kektura.app-debug-55:/layout_item_segment.xml.flat",
+        "source": "hu.kektura.app-main-57:/layout/item_segment.xml"
+    },
+    {
+        "merged": "hu.kektura.app-debug-55:/drawable_ic_chevron_down.xml.flat",
+        "source": "hu.kektura.app-main-57:/drawable/ic_chevron_down.xml"
+    },
+    {
+        "merged": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-debug-55:\\drawable_stamp_dot.xml.flat",
+        "source": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-main-57:\\drawable\\stamp_dot.xml"
+    },
+    {
+        "merged": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-debug-55:\\drawable_ic_stamps.xml.flat",
+        "source": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-main-57:\\drawable\\ic_stamps.xml"
+    },
+    {
+        "merged": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-debug-55:\\drawable_ic_chevron_right.xml.flat",
+        "source": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-main-57:\\drawable\\ic_chevron_right.xml"
+    },
+    {
+        "merged": "hu.kektura.app-debug-55:/layout_fragment_stamp_detail.xml.flat",
+        "source": "hu.kektura.app-main-57:/layout/fragment_stamp_detail.xml"
+    },
+    {
+        "merged": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-debug-55:\\mipmap-anydpi-v26_ic_launcher_round.xml.flat",
+        "source": "C:\\Users\\Adam_Hegedus\\.gradle\\daemon\\8.13\\hu.kektura.app-main-57:\\mipmap-anydpi-v26\\ic_launcher_round.xml"
+    }
+]

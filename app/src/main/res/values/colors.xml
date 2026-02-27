@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="okt_blue">#1565C0</color>
+    <color name="okt_blue_light">#5E92F3</color>
+    <color name="okt_blue_dark">#003C8F</color>
+    <color name="okt_blue_container">#D6E4FF</color>
+    <color name="okt_blue_on_container">#003C8F</color>
+    <color name="stamp_collected">#2E7D32</color>
+    <color name="stamp_pending">#9E9E9E</color>
+    <color name="white">#FFFFFF</color>
+</resources>

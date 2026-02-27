@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="okt_blue">#1565C0</color>
+    <color name="okt_blue_container">#D6E4FF</color>
+    <color name="okt_blue_dark">#003C8F</color>
+    <color name="okt_blue_light">#5E92F3</color>
+    <color name="okt_blue_on_container">#003C8F</color>
+    <color name="stamp_collected">#2E7D32</color>
+    <color name="stamp_pending">#9E9E9E</color>
+    <color name="white">#FFFFFF</color>
+    <string name="app_name">Kéktúra</string>
+    <string name="collect_all_stamps">Összes bélyegző megjelölése</string>
+    <string name="expand_group">Csoport kinyitása / összecsukása</string>
+    <string name="map_placeholder">A térkép hamarosan elérhető</string>
+    <string name="nav_map">Térkép</string>
+    <string name="nav_settings">Beállítások</string>
+    <string name="nav_stamp_detail">Bélyegzők</string>
+    <string name="nav_stamps">Bélyegzők</string>
+    <string name="stamp_status">Bélyegző állapota</string>
+    <string name="stamps_empty">Nincs elérhető bélyegző – a letöltés folyamatban van.</string>
+    <string name="trail_alfoldi">Alföldi Kéktúra</string>
+    <string name="trail_del_dunantuli">Rockenbauer Pál Dél-Dunántúli Kéktúra</string>
+    <string name="trail_okt">Országos Kéktúra</string>
+    <string name="trail_selection_hint">Válassz egyet vagy többet</string>
+    <string name="trail_selection_title">Túraútvonalak</string>
+    <style name="Theme.Kektura" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/okt_blue</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorPrimaryContainer">@color/okt_blue_container</item>
+        <item name="colorOnPrimaryContainer">@color/okt_blue_on_container</item>
+    </style>
+</resources>

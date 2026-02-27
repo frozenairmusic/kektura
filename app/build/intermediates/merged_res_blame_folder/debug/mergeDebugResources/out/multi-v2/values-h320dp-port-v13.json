@@ -1,0 +1,19 @@
+{
+    "logs": [
+        {
+            "outputFile": "hu.kektura.app-mergeDebugResources-53:/values-h320dp-port-v13/values-h320dp-port-v13.xml",
+            "map": [
+                {
+                    "source": "C:\\Users\\Adam_Hegedus\\.gradle\\caches\\8.13\\transforms\\c88366135098760494156e6fe4a5530e\\transformed\\material-1.12.0\\res\\values-h320dp-port-v13\\values-h320dp-port-v13.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "63",
+                        "endOffsets": "114"
+                    }
+                }
+            ]
+        }
+    ]
+}
