@@ -2,9 +2,14 @@ package hu.kektura.app
 
 import android.app.Application
 import hu.kektura.app.data.db.AppDatabase
+import hu.kektura.app.data.model.GpxSegment
 import hu.kektura.app.data.repository.TrailRepository
+import hu.kektura.app.data.seed.AkSegmentSeedData
+import hu.kektura.app.data.seed.AkSegmentUrls
 import hu.kektura.app.data.seed.OktSegmentSeedData
 import hu.kektura.app.data.seed.OktSegmentUrls
+import hu.kektura.app.data.seed.RpddkSegmentSeedData
+import hu.kektura.app.data.seed.RpddkSegmentUrls
 import hu.kektura.app.util.GpxDownloader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,19 +33,28 @@ class KekturaApp : Application() {
     }
 
     private suspend fun seedSegmentsIfNeeded() {
-        database.gpxSegmentDao().insertAll(OktSegmentSeedData.segments)
+        val dao = database.gpxSegmentDao()
+        dao.insertAll(OktSegmentSeedData.segments)
+        dao.insertAll(AkSegmentSeedData.segments)
+        dao.insertAll(RpddkSegmentSeedData.segments)
     }
 
     /**
-     * Downloads GPX for any OKT segments that don't yet have data.
+     * Downloads GPX for any segments that don't yet have data, across all 3 trails.
      * Runs silently in background; UI observes LiveData and updates when data arrives.
      */
     private suspend fun downloadMissingGpxFiles() {
-        for (seg in OktSegmentSeedData.segments) {
+        val allSegmentsWithUrls: List<Pair<GpxSegment, Map<Int, String>>> = listOf(
+            OktSegmentSeedData.segments   to OktSegmentUrls.urls,
+            AkSegmentSeedData.segments    to AkSegmentUrls.urls,
+            RpddkSegmentSeedData.segments to RpddkSegmentUrls.urls
+        ).flatMap { (segs, urls) -> segs.map { it to urls } }
+
+        for ((seg, urls) in allSegmentsWithUrls) {
             val existing = database.gpxSegmentDao().getById(seg.id)
             if (existing?.hasData == true) continue          // already loaded
 
-            val url = OktSegmentUrls.urls[seg.id] ?: continue
+            val url = urls[seg.id] ?: continue
             val gpx = GpxDownloader.download(url) ?: continue
 
             repository.updateSegmentGpx(seg.id, gpx)
@@ -48,3 +62,4 @@ class KekturaApp : Application() {
         }
     }
 }
+

@@ -6,6 +6,7 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "gpx_segments")
 data class GpxSegment(
     @PrimaryKey val id: Int,
+    val trailType: String = "OKT",
     val name: String,
     val region: String,
     val distanceKm: Float,

@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MediatorLiveData
+import androidx.lifecycle.MutableLiveData
 import hu.kektura.app.KekturaApp
 import hu.kektura.app.data.model.GpxSegment
 import hu.kektura.app.data.model.StampPoint
@@ -19,9 +20,13 @@ class StampsViewModel(application: Application) : AndroidViewModel(application) 
 
     private val repo = (application as KekturaApp).repository
 
+    /** Selected trail types (as TrailType.name strings), e.g. ["OKT", "ALFOLDI"] */
+    val selectedTrailTypes = MutableLiveData<List<String>>(listOf("OKT"))
+
+    private var currentSegmentsSource: LiveData<List<GpxSegment>>? = null
+
     /**
-     * All 27 OKT segments enriched with live stamp/collected counts.
-     * Deduplicates by OKTPH group key exactly as in the original app.
+     * All segments for the currently selected trails, enriched with live stamp/collected counts.
      */
     val segmentRows: MediatorLiveData<List<SegmentRow>> =
         MediatorLiveData<List<SegmentRow>>().apply {
@@ -43,10 +48,18 @@ class StampsViewModel(application: Application) : AndroidViewModel(application) 
                 }
             }
 
-            addSource(repo.allSegments)       { segs -> segments    = segs;         merge() }
-            addSource(repo.allStampPoints)    { pts  -> allStamps   = pts;          merge() }
-            addSource(repo.collectedPointIds) { ids  -> collectedIds = ids.toSet(); merge() }
+            // Observe trail type selection to swap the segments source
+            addSource(selectedTrailTypes) { types ->
+                currentSegmentsSource?.let { removeSource(it) }
+                val newSource = repo.getSegmentsByTrailTypesLive(types)
+                currentSegmentsSource = newSource
+                addSource(newSource) { segs -> segments = segs; merge() }
+            }
+
+            addSource(repo.allStampPoints)    { pts  -> allStamps    = pts;          merge() }
+            addSource(repo.collectedPointIds) { ids  -> collectedIds = ids.toSet();  merge() }
         }
 
     val totalCollected: LiveData<Int> = repo.collectedCount
 }
+

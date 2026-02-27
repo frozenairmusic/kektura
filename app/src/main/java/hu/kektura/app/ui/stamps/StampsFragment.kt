@@ -10,7 +10,6 @@ import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import hu.kektura.app.R
 import hu.kektura.app.data.SettingsStore
-import hu.kektura.app.data.TrailType
 import hu.kektura.app.databinding.FragmentStampsBinding
 
 class StampsFragment : Fragment() {
@@ -36,35 +35,26 @@ class StampsFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         binding.recyclerView.layoutManager = LinearLayoutManager(requireContext())
         binding.recyclerView.adapter = adapter
+
+        viewModel.segmentRows.observe(viewLifecycleOwner) { rows ->
+            adapter.submitList(rows)
+            val total = rows.sumOf { it.stampCount }
+            val collected = rows.sumOf { it.collectedCount }
+            binding.tvProgress.text      = "$collected / $total bélyegző"
+            binding.progressBar.max      = if (total > 0) total else 1
+            binding.progressBar.progress = collected
+        }
     }
 
     override fun onResume() {
         super.onResume()
-        refreshContent()
-    }
+        // Push the current trail selection into the ViewModel so the segment list updates
+        val selectedTrailTypeNames = SettingsStore.getSelectedTrails(requireContext())
+            .map { it.name }
+        viewModel.selectedTrailTypes.value = selectedTrailTypeNames
 
-    private fun refreshContent() {
-        val selectedTrails = SettingsStore.getSelectedTrails(requireContext())
-        val hasOkt = selectedTrails.contains(TrailType.OKT)
-
-        if (hasOkt) {
-            binding.recyclerView.visibility  = View.VISIBLE
-            binding.comingSoonText.visibility = View.GONE
-
-            viewModel.segmentRows.observe(viewLifecycleOwner) { rows ->
-                adapter.submitList(rows)
-                val total = rows.sumOf { it.stampCount }
-                val collected = rows.sumOf { it.collectedCount }
-                binding.tvProgress.text      = "$collected / $total bélyegző"
-                binding.progressBar.max      = if (total > 0) total else 1
-                binding.progressBar.progress = collected
-            }
-        } else {
-            binding.recyclerView.visibility  = View.GONE
-            binding.comingSoonText.visibility = View.VISIBLE
-            val names = selectedTrails.joinToString(", ") { it.displayName }
-            binding.comingSoonText.text = "$names – hamarosan elérhető."
-        }
+        binding.recyclerView.visibility   = View.VISIBLE
+        binding.comingSoonText.visibility = View.GONE
     }
 
     override fun onDestroyView() {
@@ -72,3 +62,4 @@ class StampsFragment : Fragment() {
         _binding = null
     }
 }
+

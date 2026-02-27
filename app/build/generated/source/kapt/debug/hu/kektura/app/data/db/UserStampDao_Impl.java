@@ -70,7 +70,7 @@ public final class UserStampDao_Impl implements UserStampDao {
   }
 
   @Override
-  public Object insert(final UserStamp stamp, final Continuation<? super Unit> $completion) {
+  public Object insert(final UserStamp stamp, final Continuation<? super Unit> arg1) {
     return CoroutinesRoom.execute(__db, true, new Callable<Unit>() {
       @Override
       @NonNull
@@ -84,11 +84,11 @@ public final class UserStampDao_Impl implements UserStampDao {
           __db.endTransaction();
         }
       }
-    }, $completion);
+    }, arg1);
   }
 
   @Override
-  public Object deleteByPointId(final int pointId, final Continuation<? super Unit> $completion) {
+  public Object deleteByPointId(final int pointId, final Continuation<? super Unit> arg1) {
     return CoroutinesRoom.execute(__db, true, new Callable<Unit>() {
       @Override
       @NonNull
@@ -109,7 +109,7 @@ public final class UserStampDao_Impl implements UserStampDao {
           __preparedStmtOfDeleteByPointId.release(_stmt);
         }
       }
-    }, $completion);
+    }, arg1);
   }
 
   @Override

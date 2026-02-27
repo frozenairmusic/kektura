@@ -10,6 +10,9 @@ interface GpxSegmentDao {
     @Query("SELECT * FROM gpx_segments ORDER BY id ASC")
     fun getAllLive(): LiveData<List<GpxSegment>>
 
+    @Query("SELECT * FROM gpx_segments WHERE trailType IN (:trailTypes) ORDER BY id ASC")
+    fun getByTrailTypesLive(trailTypes: List<String>): LiveData<List<GpxSegment>>
+
     @Query("SELECT * FROM gpx_segments WHERE id = :id LIMIT 1")
     suspend fun getById(id: Int): GpxSegment?
 

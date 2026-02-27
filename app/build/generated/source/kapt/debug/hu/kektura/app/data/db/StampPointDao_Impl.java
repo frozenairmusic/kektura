@@ -87,8 +87,7 @@ public final class StampPointDao_Impl implements StampPointDao {
   }
 
   @Override
-  public Object insertAll(final List<StampPoint> points,
-      final Continuation<? super Unit> $completion) {
+  public Object insertAll(final List<StampPoint> points, final Continuation<? super Unit> arg1) {
     return CoroutinesRoom.execute(__db, true, new Callable<Unit>() {
       @Override
       @NonNull
@@ -102,11 +101,11 @@ public final class StampPointDao_Impl implements StampPointDao {
           __db.endTransaction();
         }
       }
-    }, $completion);
+    }, arg1);
   }
 
   @Override
-  public Object deleteBySegmentId(final int segId, final Continuation<? super Unit> $completion) {
+  public Object deleteBySegmentId(final int segId, final Continuation<? super Unit> arg1) {
     return CoroutinesRoom.execute(__db, true, new Callable<Unit>() {
       @Override
       @NonNull
@@ -127,7 +126,7 @@ public final class StampPointDao_Impl implements StampPointDao {
           __preparedStmtOfDeleteBySegmentId.release(_stmt);
         }
       }
-    }, $completion);
+    }, arg1);
   }
 
   @Override
@@ -277,7 +276,7 @@ public final class StampPointDao_Impl implements StampPointDao {
   }
 
   @Override
-  public Object getAll(final Continuation<? super List<StampPoint>> $completion) {
+  public Object getAll(final Continuation<? super List<StampPoint>> arg0) {
     final String _sql = "SELECT * FROM stamp_points";
     final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 0);
     final CancellationSignal _cancellationSignal = DBUtil.createCancellationSignal();
@@ -342,7 +341,7 @@ public final class StampPointDao_Impl implements StampPointDao {
           _statement.release();
         }
       }
-    }, $completion);
+    }, arg0);
   }
 
   @NonNull

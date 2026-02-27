@@ -15,6 +15,9 @@ class TrailRepository(private val db: AppDatabase) {
     val allSegments: LiveData<List<GpxSegment>> =
         db.gpxSegmentDao().getAllLive()
 
+    fun getSegmentsByTrailTypesLive(trailTypes: List<String>): LiveData<List<GpxSegment>> =
+        db.gpxSegmentDao().getByTrailTypesLive(trailTypes)
+
     suspend fun getSegment(id: Int): GpxSegment? =
         db.gpxSegmentDao().getById(id)
 
@@ -34,7 +37,8 @@ class TrailRepository(private val db: AppDatabase) {
      * Parses waypoints from the provided GPX text and upserts stamp points
      * for [segmentId]. IDs are assigned as segmentId * 1000 + (1-based index).
      *
-     * Stamp code is extracted from <desc> by finding the last (OKTPH_XX) group.
+     * Stamp code is extracted from <desc> by finding the last parenthesized code
+     * that matches a known trail stamp prefix (OKTPH, DDKPH, AKPH).
      */
     suspend fun syncWaypointsFromGpxText(
         segmentId: Int,
@@ -47,7 +51,7 @@ class TrailRepository(private val db: AppDatabase) {
         val points = wpts.mapIndexed { i, w ->
             StampPoint(
                 id        = segmentId * 1000 + (i + 1),
-                name      = w.name.ifBlank { "OKT-%02d #%d".format(segmentId, i + 1) },
+                name      = w.name.ifBlank { "#%d".format(segmentId) },
                 latitude  = w.lat,
                 longitude = w.lon,
                 region    = regionName,
@@ -78,28 +82,39 @@ class TrailRepository(private val db: AppDatabase) {
 
     companion object {
 
+        private val STAMP_PREFIXES = listOf("OKTPH", "DDKPH", "AKPH")
+
         /**
-         * Extracts the last (OKTPH_XX) code from a GPX waypoint <desc>.
+         * Extracts the last stamp code from a GPX waypoint <desc>.
+         * Handles all three trail types:
+         *  - OKT  → OKTPH_XX
+         *  - RPDDK → DDKPH_XX
+         *  - AK   → AKPH_XX
+         *
          * e.g. "Liptói-menedékház (EM143INF) (OKTPH_100_2)" → "OKTPH_100_2"
          */
         fun parseStampCode(desc: String): String {
             val regex = Regex("""\(([^)]+)\)""")
             val matches = regex.findAll(desc).map { it.groupValues[1] }.toList()
-            return matches.lastOrNull { it.startsWith("OKTPH") } ?: ""
+            return matches.lastOrNull { code ->
+                STAMP_PREFIXES.any { prefix -> code.startsWith(prefix) }
+            } ?: ""
         }
 
         /**
-         * Derives the display group key:
+         * Derives the display group key by stripping numeric-only suffixes:
          *   OKTPH_07      → OKTPH_07
          *   OKTPH_07_1    → OKTPH_07   (numeric suffix → same physical location)
          *   OKTPH_07_2    → OKTPH_07
          *   OKTPH_07_B    → OKTPH_07_B (letter → inserted stamp, own group)
-         *   OKTPH_07_B_1  → OKTPH_07_B
+         *   DDKPH_03_1    → DDKPH_03
+         *   AKPH_05       → AKPH_05
          */
         fun groupKeyFor(stampCode: String): String {
             if (stampCode.isBlank()) return ""
-            val m = Regex("""^(OKTPH_\d+(?:_[A-Za-z]+)?)""").find(stampCode)
+            val m = Regex("""^([A-Z]+PH_\d+(?:_[A-Za-z]+)?)""").find(stampCode)
             return m?.groupValues?.get(1) ?: stampCode
         }
     }
 }
+

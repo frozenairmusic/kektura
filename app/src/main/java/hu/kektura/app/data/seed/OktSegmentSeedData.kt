@@ -35,5 +35,5 @@ object OktSegmentSeedData {
     )
 
     private fun seg(id: Int, name: String, region: String, distanceKm: Float) =
-        GpxSegment(id = id, name = name, region = region, distanceKm = distanceKm)
+        GpxSegment(id = id, trailType = "OKT", name = name, region = region, distanceKm = distanceKm)
 }

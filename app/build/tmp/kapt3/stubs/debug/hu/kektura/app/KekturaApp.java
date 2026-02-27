@@ -32,7 +32,7 @@ public final class KekturaApp extends android.app.Application {
     }
     
     /**
-     * Downloads GPX for any OKT segments that don't yet have data.
+     * Downloads GPX for any segments that don't yet have data, across all 3 trails.
      * Runs silently in background; UI observes LiveData and updates when data arrives.
      */
     private final java.lang.Object downloadMissingGpxFiles(kotlin.coroutines.Continuation<? super kotlin.Unit> $completion) {

@@ -35,14 +35,14 @@ public final class AppDatabase_Impl extends AppDatabase {
   @Override
   @NonNull
   protected SupportSQLiteOpenHelper createOpenHelper(@NonNull final DatabaseConfiguration config) {
-    final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(config, new RoomOpenHelper.Delegate(1) {
+    final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(config, new RoomOpenHelper.Delegate(2) {
       @Override
       public void createAllTables(@NonNull final SupportSQLiteDatabase db) {
-        db.execSQL("CREATE TABLE IF NOT EXISTS `gpx_segments` (`id` INTEGER NOT NULL, `name` TEXT NOT NULL, `region` TEXT NOT NULL, `distanceKm` REAL NOT NULL, `gpxContent` TEXT, `hasData` INTEGER NOT NULL, `visible` INTEGER NOT NULL, `lastUpdated` TEXT, PRIMARY KEY(`id`))");
+        db.execSQL("CREATE TABLE IF NOT EXISTS `gpx_segments` (`id` INTEGER NOT NULL, `trailType` TEXT NOT NULL, `name` TEXT NOT NULL, `region` TEXT NOT NULL, `distanceKm` REAL NOT NULL, `gpxContent` TEXT, `hasData` INTEGER NOT NULL, `visible` INTEGER NOT NULL, `lastUpdated` TEXT, PRIMARY KEY(`id`))");
         db.execSQL("CREATE TABLE IF NOT EXISTS `stamp_points` (`id` INTEGER NOT NULL, `name` TEXT NOT NULL, `latitude` REAL NOT NULL, `longitude` REAL NOT NULL, `region` TEXT NOT NULL, `stampCode` TEXT NOT NULL, `notes` TEXT NOT NULL, `segmentId` INTEGER NOT NULL, `elevation` REAL NOT NULL, PRIMARY KEY(`id`))");
         db.execSQL("CREATE TABLE IF NOT EXISTS `user_stamps` (`uid` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `stampPointId` INTEGER NOT NULL, `collectedAt` INTEGER NOT NULL, `note` TEXT NOT NULL)");
         db.execSQL("CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)");
-        db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'bbbb2278d2547dd873403b853de0ac03')");
+        db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '81bbd89b787b19f37653a7ea1924feb7')");
       }
 
       @Override
@@ -93,8 +93,9 @@ public final class AppDatabase_Impl extends AppDatabase {
       @NonNull
       public RoomOpenHelper.ValidationResult onValidateSchema(
           @NonNull final SupportSQLiteDatabase db) {
-        final HashMap<String, TableInfo.Column> _columnsGpxSegments = new HashMap<String, TableInfo.Column>(8);
+        final HashMap<String, TableInfo.Column> _columnsGpxSegments = new HashMap<String, TableInfo.Column>(9);
         _columnsGpxSegments.put("id", new TableInfo.Column("id", "INTEGER", true, 1, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsGpxSegments.put("trailType", new TableInfo.Column("trailType", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsGpxSegments.put("name", new TableInfo.Column("name", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsGpxSegments.put("region", new TableInfo.Column("region", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsGpxSegments.put("distanceKm", new TableInfo.Column("distanceKm", "REAL", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
@@ -146,7 +147,7 @@ public final class AppDatabase_Impl extends AppDatabase {
         }
         return new RoomOpenHelper.ValidationResult(true, null);
       }
-    }, "bbbb2278d2547dd873403b853de0ac03", "410874232ce5c83365eaa6b72ce12146");
+    }, "81bbd89b787b19f37653a7ea1924feb7", "10de44f82ad96523755e1c5ff5b7e777");
     final SupportSQLiteOpenHelper.Configuration _sqliteConfig = SupportSQLiteOpenHelper.Configuration.builder(config.context).name(config.name).callback(_openCallback).build();
     final SupportSQLiteOpenHelper _helper = config.sqliteOpenHelperFactory.create(_sqliteConfig);
     return _helper;
