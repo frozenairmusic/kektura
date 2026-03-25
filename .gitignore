@@ -2,9 +2,8 @@
 build/
 app/build/
 
-# Gradle caches and wrapper (keep wrapper scripts, ignore downloaded dists)
+# Gradle caches (keep wrapper scripts and jar)
 .gradle/
-gradle/wrapper/gradle-wrapper.jar
 
 # Local environment
 local.properties
