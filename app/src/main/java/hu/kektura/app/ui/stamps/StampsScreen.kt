@@ -22,6 +22,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -31,6 +34,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import hu.kektura.app.data.SettingsStore
+import hu.kektura.app.data.TrailType
 
 @Composable
 fun StampsScreen(
@@ -39,8 +43,10 @@ fun StampsScreen(
     viewModel: StampsViewModel = viewModel()
 ) {
     val context = LocalContext.current
+    var selectedTrail by remember { mutableStateOf<TrailType?>(null) }
     LaunchedEffect(Unit) {
         val selected = SettingsStore.getSelectedTrails(context)
+        selectedTrail = selected.first()
         viewModel.selectedTrailTypes.value = selected.map { it.name }
     }
 
@@ -56,6 +62,15 @@ fun StampsScreen(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
+            selectedTrail?.let { trail ->
+                Text(
+                    text = "${trail.name} – ${trail.displayName}",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+            }
             Text(
                 text = "$collected / $total bélyegző",
                 style = MaterialTheme.typography.titleMedium,
@@ -107,13 +122,19 @@ private fun SegmentCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val allCollected = row.stampCount > 0 && row.collectedCount == row.stampCount
     Card(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        colors = CardDefaults.cardColors(
+            containerColor = if (allCollected)
+                MaterialTheme.colorScheme.primaryContainer
+            else
+                MaterialTheme.colorScheme.surface
+        )
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
