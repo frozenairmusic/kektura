@@ -2,15 +2,8 @@ package hu.kektura.app
 
 import android.app.Application
 import hu.kektura.app.data.db.AppDatabase
-import hu.kektura.app.data.model.GpxSegment
-import java.time.LocalDate
+import hu.kektura.app.data.remote.MetadataFetcher
 import hu.kektura.app.data.repository.TrailRepository
-import hu.kektura.app.data.seed.AkSegmentSeedData
-import hu.kektura.app.data.seed.AkSegmentUrls
-import hu.kektura.app.data.seed.OktSegmentSeedData
-import hu.kektura.app.data.seed.OktSegmentUrls
-import hu.kektura.app.data.seed.RpddkSegmentSeedData
-import hu.kektura.app.data.seed.RpddkSegmentUrls
 import hu.kektura.app.util.GpxDownloader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -26,41 +19,37 @@ class KekturaApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        // Ensure segments are seeded, then auto-download missing GPX files
-        appScope.launch {
-            seedSegmentsIfNeeded()
-            downloadMissingGpxFiles()
-        }
-    }
-
-    private suspend fun seedSegmentsIfNeeded() {
-        val dao = database.gpxSegmentDao()
-        dao.insertAll(OktSegmentSeedData.segments)
-        dao.insertAll(AkSegmentSeedData.segments)
-        dao.insertAll(RpddkSegmentSeedData.segments)
+        appScope.launch { syncFromMetadata() }
     }
 
     /**
-     * Downloads GPX for any segments that don't yet have data, across all 3 trails.
-     * Runs silently in background; UI observes LiveData and updates when data arrives.
+     * Fetches metadata.json from GCS, upserts segment rows (insert on first run,
+     * update name/distance if changed), then downloads GPX only for segments whose
+     * remote last_updated differs from the locally stored value.
      */
-    private suspend fun downloadMissingGpxFiles() {
-        val allSegmentsWithUrls: List<Pair<GpxSegment, Map<Int, String>>> = listOf(
-            OktSegmentSeedData.segments   to OktSegmentUrls.urls,
-            AkSegmentSeedData.segments    to AkSegmentUrls.urls,
-            RpddkSegmentSeedData.segments to RpddkSegmentUrls.urls
-        ).flatMap { (segs, urls) -> segs.map { it to urls } }
+    private suspend fun syncFromMetadata() {
+        val remoteSegments = MetadataFetcher.fetch() ?: return
+        val dao = database.gpxSegmentDao()
 
-        for ((seg, urls) in allSegmentsWithUrls) {
-            val existing = database.gpxSegmentDao().getById(seg.id)
-            if (existing?.hasData == true) continue          // already loaded
+        // 1. Insert any segment that doesn't exist yet (IGNORE keeps existing rows intact)
+        dao.insertAll(remoteSegments.filter { it.roomId > 0 }.map { it.toGpxSegment() })
 
-            val url = urls[seg.id] ?: continue
-            val gpx = GpxDownloader.download(url) ?: continue
+        // 2. Update name/distance from metadata for all known segments
+        for (meta in remoteSegments) {
+            if (meta.roomId <= 0) continue
+            dao.updateMetadata(meta.roomId, meta.title, meta.distanceKm)
+        }
 
-            repository.updateSegmentGpx(seg.id, gpx, LocalDate.now().toString())
-            repository.syncWaypointsFromGpxText(seg.id, gpx, seg.region)
+        // 3. Download GPX only for segments that are new or have an updated last_updated
+        for (meta in remoteSegments) {
+            val local = dao.getById(meta.roomId) ?: continue
+            if (local.hasData && local.lastUpdated == meta.lastUpdated) continue
+
+            val gpx = GpxDownloader.download(meta.gpxUrl) ?: continue
+            repository.updateSegmentGpx(local.id, gpx, meta.lastUpdated)
+            repository.syncWaypointsFromGpxText(local.id, gpx, local.region)
         }
     }
 }
+
 

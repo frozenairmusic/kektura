@@ -13,9 +13,6 @@ interface StampPointDao {
     @Query("SELECT * FROM stamp_points WHERE segmentId = :segId ORDER BY id ASC")
     fun getBySegmentIdLive(segId: Int): LiveData<List<StampPoint>>
 
-    @Query("SELECT * FROM stamp_points")
-    suspend fun getAll(): List<StampPoint>
-
     @Query("DELETE FROM stamp_points WHERE segmentId = :segId")
     suspend fun deleteBySegmentId(segId: Int)
 

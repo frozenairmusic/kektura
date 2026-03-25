@@ -39,7 +39,8 @@ class StampDetailViewModel(
 
     private val repo = (application as KekturaApp).repository
 
-    private val _expandedGroups = MutableStateFlow<Set<String>>(emptySet())
+    // Tracks which groups have been explicitly collapsed; all others default to expanded.
+    private val _collapsedGroups = MutableStateFlow<Set<String>>(emptySet())
 
     private val _stampUis: StateFlow<List<StampPointUi>> =
         combine(
@@ -51,7 +52,7 @@ class StampDetailViewModel(
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val groupedList: StateFlow<List<StampListItem>> =
-        combine(_stampUis, _expandedGroups) { stampUis, expanded ->
+        combine(_stampUis, _collapsedGroups) { stampUis, collapsed ->
             val groupOrder = mutableListOf<String>()
             val byGroup = LinkedHashMap<String, MutableList<StampPointUi>>()
 
@@ -67,7 +68,7 @@ class StampDetailViewModel(
             val flat = mutableListOf<StampListItem>()
             for (key in groupOrder) {
                 val items = byGroup[key] ?: continue
-                val isExpanded = expanded.contains(key)
+                val isExpanded = !collapsed.contains(key)
                 val groupName = items.map { it.point.name }.distinct().joinToString(" / ")
                 flat.add(StampListItem.GroupHeader(StampGroupUi(key, groupName, items, isExpanded)))
                 if (isExpanded) {
@@ -78,8 +79,8 @@ class StampDetailViewModel(
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun toggleGroup(key: String) {
-        val current = _expandedGroups.value
-        _expandedGroups.value = if (current.contains(key)) current - key else current + key
+        val current = _collapsedGroups.value
+        _collapsedGroups.value = if (current.contains(key)) current - key else current + key
     }
 
     fun collectGroup(key: String) = viewModelScope.launch {

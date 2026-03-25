@@ -1,5 +1,6 @@
 package hu.kektura.app.data.remote
 
+import hu.kektura.app.data.model.GpxSegment
 import org.json.JSONObject
 import java.io.IOException
 import java.net.HttpURLConnection
@@ -12,7 +13,9 @@ data class RemoteSegmentMeta(
     val trailKey: String,       // "okt", "ak", "rpddk"
     val segmentNumber: String,  // "01", "02", …
     val lastUpdated: String,    // "20251016"
-    val filename: String        // "okt_01_20251107.gpx"
+    val filename: String,       // "okt_01_20251107.gpx"
+    val title: String,          // "Írott-kő - Sárvár"
+    val distanceKm: Float       // 72.5
 ) {
     /**
      * Maps the remote trail key + segment number to the local Room entity ID.
@@ -31,9 +34,21 @@ data class RemoteSegmentMeta(
             }
         }
 
+    /** Trail type string stored in Room ("OKT", "AK", "RPDDK"). */
+    val trailType: String get() = trailKey.uppercase()
+
     /** Full download URL for the GPX file. */
     val gpxUrl: String
         get() = "$BASE_URL/$trailKey/$filename"
+
+    /** Creates a GpxSegment row suitable for initial insertion (no GPX data yet). */
+    fun toGpxSegment() = GpxSegment(
+        id          = roomId,
+        trailType   = trailType,
+        name        = title,
+        region      = "",
+        distanceKm  = distanceKm
+    )
 
     companion object {
         private const val BASE_URL = "https://storage.googleapis.com/kektura-gpx/gpx"
@@ -97,13 +112,20 @@ object MetadataFetcher {
                 val entry = trailObj.optJSONObject(segNumber) ?: continue
                 val lastUpdated = entry.optString("last_updated", "")
                 val filename = entry.optString("filename", "")
+                val title = entry.optString("title", "")
+                val distanceKm = entry.optString("distance", "0")
+                    .replace(",", ".")
+                    .replace(Regex("[^0-9.]"), "")
+                    .toFloatOrNull() ?: 0f
                 if (lastUpdated.isNotBlank() && filename.isNotBlank()) {
                     result.add(
                         RemoteSegmentMeta(
-                            trailKey = trailKey,
+                            trailKey      = trailKey,
                             segmentNumber = segNumber,
-                            lastUpdated = lastUpdated,
-                            filename = filename
+                            lastUpdated   = lastUpdated,
+                            filename      = filename,
+                            title         = title,
+                            distanceKm    = distanceKm
                         )
                     )
                 }
