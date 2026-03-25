@@ -8,8 +8,8 @@ private const val KEY_SELECTED_TRAILS = "selected_trails"
 
 enum class TrailType(val displayName: String) {
     OKT("Országos Kéktúra"),
-    DEL_DUNANTULI("Rockenbauer Pál Dél-Dunántúli Kéktúra"),
-    ALFOLDI("Alföldi Kéktúra")
+    RPDDK("Rockenbauer Pál Dél-Dunántúli Kéktúra"),
+    AK("Alföldi Kéktúra")
 }
 
 object SettingsStore {

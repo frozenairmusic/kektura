@@ -2,15 +2,18 @@ package hu.kektura.app.ui.stampdetail
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MediatorLiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.asFlow
 import androidx.lifecycle.viewModelScope
 import hu.kektura.app.KekturaApp
 import hu.kektura.app.data.model.StampPoint
 import hu.kektura.app.data.repository.TrailRepository.Companion.groupKeyFor
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 data class StampPointUi(val point: StampPoint, val collected: Boolean)
@@ -36,71 +39,59 @@ class StampDetailViewModel(
 
     private val repo = (application as KekturaApp).repository
 
-    private val _expandedGroups = MutableLiveData<Set<String>>(emptySet())
+    private val _expandedGroups = MutableStateFlow<Set<String>>(emptySet())
 
-    private val _stampUis: MediatorLiveData<List<StampPointUi>> =
-        MediatorLiveData<List<StampPointUi>>().apply {
-            var points: List<StampPoint> = emptyList()
-            var collectedIds: Set<Int> = emptySet()
+    private val _stampUis: StateFlow<List<StampPointUi>> =
+        combine(
+            repo.getStampsBySegmentLive(segmentId).asFlow(),
+            repo.collectedPointIds.asFlow()
+        ) { points, ids ->
+            val idSet = ids.toSet()
+            points.map { StampPointUi(it, idSet.contains(it.id)) }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-            fun merge() {
-                value = points.map { StampPointUi(it, collectedIds.contains(it.id)) }
+    val groupedList: StateFlow<List<StampListItem>> =
+        combine(_stampUis, _expandedGroups) { stampUis, expanded ->
+            val groupOrder = mutableListOf<String>()
+            val byGroup = LinkedHashMap<String, MutableList<StampPointUi>>()
+
+            for (ui in stampUis) {
+                val key = groupKeyFor(ui.point.stampCode).ifBlank { ui.point.stampCode }
+                if (!byGroup.containsKey(key)) {
+                    groupOrder.add(key)
+                    byGroup[key] = mutableListOf()
+                }
+                byGroup[key]!!.add(ui)
             }
 
-            addSource(repo.getStampsBySegmentLive(segmentId)) { pts -> points = pts; merge() }
-            addSource(repo.collectedPointIds) { ids -> collectedIds = ids.toSet(); merge() }
-        }
-
-    val groupedList: MediatorLiveData<List<StampListItem>> =
-        MediatorLiveData<List<StampListItem>>().apply {
-            var stampUis: List<StampPointUi> = emptyList()
-            var expanded: Set<String> = emptySet()
-
-            fun rebuild() {
-                val groupOrder = mutableListOf<String>()
-                val byGroup = LinkedHashMap<String, MutableList<StampPointUi>>()
-
-                for (ui in stampUis) {
-                    val key = groupKeyFor(ui.point.stampCode).ifBlank { ui.point.stampCode }
-                    if (!byGroup.containsKey(key)) {
-                        groupOrder.add(key)
-                        byGroup[key] = mutableListOf()
-                    }
-                    byGroup[key]!!.add(ui)
+            val flat = mutableListOf<StampListItem>()
+            for (key in groupOrder) {
+                val items = byGroup[key] ?: continue
+                val isExpanded = expanded.contains(key)
+                val groupName = items.map { it.point.name }.distinct().joinToString(" / ")
+                flat.add(StampListItem.GroupHeader(StampGroupUi(key, groupName, items, isExpanded)))
+                if (isExpanded) {
+                    items.forEach { flat.add(StampListItem.StampEntry(it, key)) }
                 }
-
-                val flat = mutableListOf<StampListItem>()
-                for (key in groupOrder) {
-                    val items = byGroup[key] ?: continue
-                    val isExpanded = expanded.contains(key)
-                    val groupName = items.map { it.point.name }.distinct().joinToString(" / ")
-                    flat.add(StampListItem.GroupHeader(StampGroupUi(key, groupName, items, isExpanded)))
-                    if (isExpanded) {
-                        items.forEach { flat.add(StampListItem.StampEntry(it, key)) }
-                    }
-                }
-                value = flat
             }
-
-            addSource(_stampUis)        { items -> stampUis = items; rebuild() }
-            addSource(_expandedGroups)  { e     -> expanded = e;    rebuild() }
-        }
+            flat as List<StampListItem>
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun toggleGroup(key: String) {
-        val current = _expandedGroups.value ?: emptySet()
+        val current = _expandedGroups.value
         _expandedGroups.value = if (current.contains(key)) current - key else current + key
     }
 
     fun collectGroup(key: String) = viewModelScope.launch {
         _stampUis.value
-            ?.filter { groupKeyFor(it.point.stampCode).ifBlank { it.point.stampCode } == key && !it.collected }
-            ?.forEach { repo.collectStamp(it.point.id) }
+            .filter { groupKeyFor(it.point.stampCode).ifBlank { it.point.stampCode } == key && !it.collected }
+            .forEach { repo.collectStamp(it.point.id) }
     }
 
     fun removeGroup(key: String) = viewModelScope.launch {
         _stampUis.value
-            ?.filter { groupKeyFor(it.point.stampCode).ifBlank { it.point.stampCode } == key && it.collected }
-            ?.forEach { repo.removeStamp(it.point.id) }
+            .filter { groupKeyFor(it.point.stampCode).ifBlank { it.point.stampCode } == key && it.collected }
+            .forEach { repo.removeStamp(it.point.id) }
     }
 
     class Factory(

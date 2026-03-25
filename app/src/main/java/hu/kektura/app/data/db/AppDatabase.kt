@@ -9,16 +9,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import hu.kektura.app.data.model.GpxSegment
 import hu.kektura.app.data.model.StampPoint
 import hu.kektura.app.data.model.UserStamp
-import hu.kektura.app.data.seed.AkSegmentSeedData
-import hu.kektura.app.data.seed.OktSegmentSeedData
-import hu.kektura.app.data.seed.RpddkSegmentSeedData
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 @Database(
     entities = [GpxSegment::class, StampPoint::class, UserStamp::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -38,6 +32,14 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** Renames trailType values: DEL_DUNANTULI → RPDDK, ALFOLDI → AK. */
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("UPDATE gpx_segments SET trailType = 'RPDDK' WHERE trailType = 'DEL_DUNANTULI'")
+                db.execSQL("UPDATE gpx_segments SET trailType = 'AK' WHERE trailType = 'ALFOLDI'")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -45,28 +47,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "kektura.db"
                 )
-                    .addMigrations(MIGRATION_1_2)
-                    .addCallback(object : Callback() {
-                        override fun onCreate(db: SupportSQLiteDatabase) {
-                            super.onCreate(db)
-                            // Seed all trail segments on first database creation
-                            CoroutineScope(Dispatchers.IO).launch {
-                                val dao = INSTANCE?.gpxSegmentDao() ?: return@launch
-                                dao.insertAll(OktSegmentSeedData.segments)
-                                dao.insertAll(AkSegmentSeedData.segments)
-                                dao.insertAll(RpddkSegmentSeedData.segments)
-                            }
-                        }
-                        override fun onOpen(db: SupportSQLiteDatabase) {
-                            super.onOpen(db)
-                            // Seed new trail segments if they were added after the initial install
-                            CoroutineScope(Dispatchers.IO).launch {
-                                val dao = INSTANCE?.gpxSegmentDao() ?: return@launch
-                                dao.insertAll(AkSegmentSeedData.segments)
-                                dao.insertAll(RpddkSegmentSeedData.segments)
-                            }
-                        }
-                    })
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .build()
                     .also { INSTANCE = it }
             }

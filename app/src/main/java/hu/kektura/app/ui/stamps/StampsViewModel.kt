@@ -2,13 +2,18 @@ package hu.kektura.app.ui.stamps
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MediatorLiveData
-import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.asFlow
 import hu.kektura.app.KekturaApp
 import hu.kektura.app.data.model.GpxSegment
 import hu.kektura.app.data.model.StampPoint
 import hu.kektura.app.data.repository.TrailRepository.Companion.groupKeyFor
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.SharingStarted
+import androidx.lifecycle.viewModelScope
 
 data class SegmentRow(
     val segment: GpxSegment,
@@ -20,46 +25,31 @@ class StampsViewModel(application: Application) : AndroidViewModel(application) 
 
     private val repo = (application as KekturaApp).repository
 
-    /** Selected trail types (as TrailType.name strings), e.g. ["OKT", "ALFOLDI"] */
-    val selectedTrailTypes = MutableLiveData<List<String>>(listOf("OKT"))
+    /** Selected trail types (as TrailType.name strings), e.g. ["OKT", "AK"] */
+    val selectedTrailTypes = MutableStateFlow(listOf("OKT"))
 
-    private var currentSegmentsSource: LiveData<List<GpxSegment>>? = null
-
-    /**
-     * All segments for the currently selected trails, enriched with live stamp/collected counts.
-     */
-    val segmentRows: MediatorLiveData<List<SegmentRow>> =
-        MediatorLiveData<List<SegmentRow>>().apply {
-            var segments: List<GpxSegment> = emptyList()
-            var allStamps: List<StampPoint> = emptyList()
-            var collectedIds: Set<Int> = emptySet()
-
-            fun merge() {
-                val bySegment = allStamps.groupBy { it.segmentId }
-                value = segments.map { seg ->
-                    val stamps = bySegment[seg.id] ?: emptyList()
-                    val groups = stamps.groupBy { sp ->
-                        groupKeyFor(sp.stampCode).ifBlank { sp.stampCode }
+    @Suppress("UNCHECKED_CAST")
+    val segmentRows: StateFlow<List<SegmentRow>> =
+        selectedTrailTypes
+            .flatMapLatest { types ->
+                val segFlow = repo.getSegmentsByTrailTypesLive(types).asFlow()
+                val stampFlow = repo.allStampPoints.asFlow()
+                val collectedFlow = repo.collectedPointIds.asFlow()
+                combine(segFlow, stampFlow, collectedFlow) { segs, stamps, ids ->
+                    val bySegment = stamps.groupBy { it.segmentId }
+                    val idSet = ids.toSet()
+                    segs.map { seg ->
+                        val segStamps = bySegment[seg.id] ?: emptyList()
+                        val groups = segStamps.groupBy { sp ->
+                            groupKeyFor(sp.stampCode).ifBlank { sp.stampCode }
+                        }
+                        val collected = groups.values.count { grp ->
+                            grp.isNotEmpty() && grp.all { idSet.contains(it.id) }
+                        }
+                        SegmentRow(seg, groups.size, collected)
                     }
-                    val collected = groups.values.count { grp ->
-                        grp.isNotEmpty() && grp.all { collectedIds.contains(it.id) }
-                    }
-                    SegmentRow(seg, groups.size, collected)
                 }
             }
-
-            // Observe trail type selection to swap the segments source
-            addSource(selectedTrailTypes) { types ->
-                currentSegmentsSource?.let { removeSource(it) }
-                val newSource = repo.getSegmentsByTrailTypesLive(types)
-                currentSegmentsSource = newSource
-                addSource(newSource) { segs -> segments = segs; merge() }
-            }
-
-            addSource(repo.allStampPoints)    { pts  -> allStamps    = pts;          merge() }
-            addSource(repo.collectedPointIds) { ids  -> collectedIds = ids.toSet();  merge() }
-        }
-
-    val totalCollected: LiveData<Int> = repo.collectedCount
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 }
 

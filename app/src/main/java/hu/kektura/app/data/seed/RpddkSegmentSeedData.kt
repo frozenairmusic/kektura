@@ -19,5 +19,5 @@ object RpddkSegmentSeedData {
     )
 
     private fun seg(id: Int, name: String, region: String, distanceKm: Float) =
-        GpxSegment(id = id, trailType = "DEL_DUNANTULI", name = name, region = region, distanceKm = distanceKm)
+        GpxSegment(id = id, trailType = "RPDDK", name = name, region = region, distanceKm = distanceKm)
 }

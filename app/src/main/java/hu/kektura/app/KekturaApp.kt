@@ -1,15 +1,13 @@
 package hu.kektura.app
 
 import android.app.Application
+import android.util.Log
 import hu.kektura.app.data.db.AppDatabase
-import hu.kektura.app.data.model.GpxSegment
+import hu.kektura.app.data.remote.MetadataFetcher
 import hu.kektura.app.data.repository.TrailRepository
 import hu.kektura.app.data.seed.AkSegmentSeedData
-import hu.kektura.app.data.seed.AkSegmentUrls
 import hu.kektura.app.data.seed.OktSegmentSeedData
-import hu.kektura.app.data.seed.OktSegmentUrls
 import hu.kektura.app.data.seed.RpddkSegmentSeedData
-import hu.kektura.app.data.seed.RpddkSegmentUrls
 import hu.kektura.app.util.GpxDownloader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -25,10 +23,9 @@ class KekturaApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        // Ensure segments are seeded, then auto-download missing GPX files
         appScope.launch {
             seedSegmentsIfNeeded()
-            downloadMissingGpxFiles()
+            syncFromMetadata()
         }
     }
 
@@ -40,26 +37,36 @@ class KekturaApp : Application() {
     }
 
     /**
-     * Downloads GPX for any segments that don't yet have data, across all 3 trails.
-     * Runs silently in background; UI observes LiveData and updates when data arrives.
+     * Fetches metadata.json from GCS, compares dates with local data,
+     * and downloads only GPX files that are newer than what we have.
      */
-    private suspend fun downloadMissingGpxFiles() {
-        val allSegmentsWithUrls: List<Pair<GpxSegment, Map<Int, String>>> = listOf(
-            OktSegmentSeedData.segments   to OktSegmentUrls.urls,
-            AkSegmentSeedData.segments    to AkSegmentUrls.urls,
-            RpddkSegmentSeedData.segments to RpddkSegmentUrls.urls
-        ).flatMap { (segs, urls) -> segs.map { it to urls } }
+    private suspend fun syncFromMetadata() {
+        val remoteMetas = MetadataFetcher.fetch() ?: return
 
-        for ((seg, urls) in allSegmentsWithUrls) {
-            val existing = database.gpxSegmentDao().getById(seg.id)
-            if (existing?.hasData == true) continue          // already loaded
+        for (meta in remoteMetas) {
+            val roomId = meta.roomId
+            if (roomId < 0) continue
 
-            val url = urls[seg.id] ?: continue
-            val gpx = GpxDownloader.download(url) ?: continue
+            val local = database.gpxSegmentDao().getById(roomId)
+            if (local != null && local.hasData) {
+                val localDate = normaliseToYmd(local.lastUpdated ?: "")
+                if (localDate.isNotBlank() && !isRemoteNewer(localDate, meta.lastUpdated)) {
+                    continue   // local is up-to-date
+                }
+            }
 
-            repository.updateSegmentGpx(seg.id, gpx)
-            repository.syncWaypointsFromGpxText(seg.id, gpx, seg.region)
+            val gpx = GpxDownloader.download(meta.gpxUrl) ?: continue
+            repository.updateSegmentGpx(roomId, gpx, meta.lastUpdated)
+            repository.syncWaypointsFromGpxText(roomId, gpx, local?.region ?: "")
+            Log.d("KekturaApp", "Synced segment ${meta.trailKey}/${meta.segmentNumber}")
         }
     }
+
+    /** Returns true when [remote] (yyyyMMdd) is strictly newer than [local] (yyyyMMdd). */
+    private fun isRemoteNewer(local: String, remote: String): Boolean =
+        remote > local
+
+    /** Strips dashes from ISO-8601 dates so both formats compare as yyyyMMdd. */
+    private fun normaliseToYmd(date: String): String = date.replace("-", "").take(8)
 }
 

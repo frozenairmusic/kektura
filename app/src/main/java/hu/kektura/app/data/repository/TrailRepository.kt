@@ -6,23 +6,16 @@ import hu.kektura.app.data.model.GpxSegment
 import hu.kektura.app.data.model.StampPoint
 import hu.kektura.app.data.model.UserStamp
 import hu.kektura.app.util.GpxParser
-import java.time.Instant
 
 class TrailRepository(private val db: AppDatabase) {
 
     // ── Segments ──────────────────────────────────────────────────────────────
 
-    val allSegments: LiveData<List<GpxSegment>> =
-        db.gpxSegmentDao().getAllLive()
-
     fun getSegmentsByTrailTypesLive(trailTypes: List<String>): LiveData<List<GpxSegment>> =
         db.gpxSegmentDao().getByTrailTypesLive(trailTypes)
 
-    suspend fun getSegment(id: Int): GpxSegment? =
-        db.gpxSegmentDao().getById(id)
-
-    suspend fun updateSegmentGpx(id: Int, gpxContent: String) {
-        db.gpxSegmentDao().updateGpxContent(id, gpxContent, Instant.now().toString())
+    suspend fun updateSegmentGpx(id: Int, gpxContent: String, lastUpdated: String) {
+        db.gpxSegmentDao().updateGpxContent(id, gpxContent, lastUpdated)
     }
 
     // ── Stamp points ──────────────────────────────────────────────────────────
@@ -68,9 +61,6 @@ class TrailRepository(private val db: AppDatabase) {
 
     val collectedPointIds: LiveData<List<Int>> =
         db.userStampDao().getCollectedIdSetLive()
-
-    val collectedCount: LiveData<Int> =
-        db.userStampDao().countLive()
 
     suspend fun collectStamp(stampPointId: Int) {
         db.userStampDao().insert(UserStamp(stampPointId = stampPointId))
