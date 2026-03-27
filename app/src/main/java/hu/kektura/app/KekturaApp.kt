@@ -2,6 +2,7 @@ package hu.kektura.app
 
 import android.app.Application
 import hu.kektura.app.data.db.AppDatabase
+import org.maplibre.android.MapLibre
 import hu.kektura.app.data.remote.MetadataFetcher
 import hu.kektura.app.data.repository.TrailRepository
 import hu.kektura.app.util.GpxDownloader
@@ -19,6 +20,7 @@ class KekturaApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        MapLibre.getInstance(this)
         appScope.launch { syncFromMetadata() }
     }
 
