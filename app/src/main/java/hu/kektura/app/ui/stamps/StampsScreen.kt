@@ -177,6 +177,21 @@ private fun SegmentCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
+            if (row.segment.distanceKm > 0) {
+                Spacer(modifier = Modifier.height(2.dp))
+                val info = buildString {
+                    append("%.1f km".format(row.segment.distanceKm))
+                    if (row.segment.elevationGainM > 0) {
+                        append("  \u2191 ${row.segment.elevationGainM} m  \u2193 ${row.segment.elevationLossM} m")
+                    }
+                }
+                Text(
+                    text = info,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
             if (row.stampCount > 0) {
                 Spacer(modifier = Modifier.height(8.dp))
                 val progress by animateFloatAsState(

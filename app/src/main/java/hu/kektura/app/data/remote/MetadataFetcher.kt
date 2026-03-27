@@ -15,7 +15,9 @@ data class RemoteSegmentMeta(
     val lastUpdated: String,    // "20251016"
     val filename: String,       // "okt_01_20251107.gpx"
     val title: String,          // "Írott-kő - Sárvár"
-    val distanceKm: Float       // 72.5
+    val distanceKm: Float,      // 72.5
+    val elevationGainM: Int,    // 570
+    val elevationLossM: Int     // 1290
 ) {
     /**
      * Maps the remote trail key + segment number to the local Room entity ID.
@@ -43,11 +45,13 @@ data class RemoteSegmentMeta(
 
     /** Creates a GpxSegment row suitable for initial insertion (no GPX data yet). */
     fun toGpxSegment() = GpxSegment(
-        id          = roomId,
-        trailType   = trailType,
-        name        = title,
-        region      = "",
-        distanceKm  = distanceKm
+        id             = roomId,
+        trailType      = trailType,
+        name           = title,
+        region         = "",
+        distanceKm     = distanceKm,
+        elevationGainM = elevationGainM,
+        elevationLossM = elevationLossM
     )
 
     companion object {
@@ -117,20 +121,30 @@ object MetadataFetcher {
                     .replace(",", ".")
                     .replace(Regex("[^0-9.]"), "")
                     .toFloatOrNull() ?: 0f
+                val (gainM, lossM) = parseEleStr(entry.optString("elevation", ""))
                 if (lastUpdated.isNotBlank() && filename.isNotBlank()) {
                     result.add(
                         RemoteSegmentMeta(
-                            trailKey      = trailKey,
-                            segmentNumber = segNumber,
-                            lastUpdated   = lastUpdated,
-                            filename      = filename,
-                            title         = title,
-                            distanceKm    = distanceKm
+                            trailKey       = trailKey,
+                            segmentNumber  = segNumber,
+                            lastUpdated    = lastUpdated,
+                            filename       = filename,
+                            title          = title,
+                            distanceKm     = distanceKm,
+                            elevationGainM = gainM,
+                            elevationLossM = lossM
                         )
                     )
                 }
             }
         }
         return result
+    }
+
+    private fun parseEleStr(raw: String): Pair<Int, Int> {
+        val parts = raw.split("/")
+        val gain = parts.getOrNull(0)?.replace(Regex("[^0-9]"), "")?.toIntOrNull() ?: 0
+        val loss = parts.getOrNull(1)?.replace(Regex("[^0-9]"), "")?.toIntOrNull() ?: 0
+        return gain to loss
     }
 }

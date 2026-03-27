@@ -10,6 +10,8 @@ data class GpxSegment(
     val name: String,
     val region: String,
     val distanceKm: Float,
+    val elevationGainM: Int = 0,
+    val elevationLossM: Int = 0,
     val gpxContent: String? = null,
     val hasData: Boolean = false,
     val visible: Boolean = true,

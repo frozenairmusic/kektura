@@ -37,7 +37,7 @@ class KekturaApp : Application() {
         // 2. Update name/distance from metadata for all known segments
         for (meta in remoteSegments) {
             if (meta.roomId <= 0) continue
-            dao.updateMetadata(meta.roomId, meta.title, meta.distanceKm)
+            dao.updateMetadata(meta.roomId, meta.title, meta.distanceKm, meta.elevationGainM, meta.elevationLossM)
         }
 
         // 3. Download GPX only for segments that are new or have an updated last_updated

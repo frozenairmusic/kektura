@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.asFlow
 import androidx.lifecycle.viewModelScope
 import hu.kektura.app.KekturaApp
+import hu.kektura.app.data.model.GpxSegment
 import hu.kektura.app.data.model.StampPoint
 import hu.kektura.app.data.repository.TrailRepository.Companion.groupKeyFor
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,6 +39,13 @@ class StampDetailViewModel(
 ) : AndroidViewModel(application) {
 
     private val repo = (application as KekturaApp).repository
+
+    private val _segment = MutableStateFlow<GpxSegment?>(null)
+    val segment: StateFlow<GpxSegment?> = _segment
+
+    init {
+        viewModelScope.launch { _segment.value = repo.getSegmentById(segmentId) }
+    }
 
     // Tracks which groups have been explicitly collapsed; all others default to expanded.
     private val _collapsedGroups = MutableStateFlow<Set<String>>(emptySet())

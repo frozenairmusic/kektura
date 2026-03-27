@@ -14,6 +14,8 @@ class TrailRepository(private val db: AppDatabase) {
     fun getSegmentsByTrailTypesLive(trailTypes: List<String>): LiveData<List<GpxSegment>> =
         db.gpxSegmentDao().getByTrailTypesLive(trailTypes)
 
+    suspend fun getSegmentById(id: Int): GpxSegment? = db.gpxSegmentDao().getById(id)
+
     suspend fun updateSegmentGpx(id: Int, gpxContent: String, lastUpdated: String) {
         db.gpxSegmentDao().updateGpxContent(id, gpxContent, lastUpdated)
     }

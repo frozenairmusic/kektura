@@ -51,6 +51,7 @@ fun StampDetailScreen(
     )
 ) {
     val list by viewModel.groupedList.collectAsStateWithLifecycle()
+    val segment by viewModel.segment.collectAsStateWithLifecycle()
 
     val headers = list.filterIsInstance<StampListItem.GroupHeader>()
     val total = headers.size
@@ -79,6 +80,28 @@ fun StampDetailScreen(
                 color = MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.surfaceVariant,
             )
+            segment?.let { seg ->
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    if (seg.distanceKm > 0) {
+                        Text(
+                            text = "%.1f km".format(seg.distanceKm),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (seg.elevationGainM > 0) {
+                        Text(
+                            text = "\u2191 ${seg.elevationGainM} m  \u2193 ${seg.elevationLossM} m",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
         }
 
         HorizontalDivider()
