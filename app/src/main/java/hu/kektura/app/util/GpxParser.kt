@@ -82,4 +82,26 @@ object GpxParser {
         }
         return waypoints
     }
+
+    data class TrackPoint(val lat: Double, val lon: Double)
+
+    /**
+     * Extracts ordered track points from <trkpt> elements.
+     * Used for drawing trail polylines on the map.
+     */
+    fun parseTracks(input: InputStream): List<TrackPoint> {
+        val points = mutableListOf<TrackPoint>()
+        val parser = XmlPullParserFactory.newInstance().newPullParser()
+        parser.setInput(input, null)
+        var eventType = parser.eventType
+        while (eventType != XmlPullParser.END_DOCUMENT) {
+            if (eventType == XmlPullParser.START_TAG && parser.name == "trkpt") {
+                val lat = parser.getAttributeValue(null, "lat")?.toDoubleOrNull()
+                val lon = parser.getAttributeValue(null, "lon")?.toDoubleOrNull()
+                if (lat != null && lon != null) points.add(TrackPoint(lat, lon))
+            }
+            eventType = parser.next()
+        }
+        return points
+    }
 }
