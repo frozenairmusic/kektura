@@ -65,11 +65,29 @@ interface UserHikeDao {
     @Query("SELECT * FROM user_hike_stamps WHERE hikeId = :hikeId AND stampPointId = :stampPointId LIMIT 1")
     suspend fun getStampInHike(hikeId: Int, stampPointId: Int): UserHikeStamp?
 
+    @Query("SELECT * FROM user_hike_stamps WHERE id = :id LIMIT 1")
+    suspend fun getStampEntry(id: Int): UserHikeStamp?
+
+    @Query("UPDATE user_hike_stamps SET notes = :notes WHERE id = :id")
+    suspend fun updateStampNotes(id: Int, notes: String)
+
+    /** Moves one stamp entry into another hike (= another date). */
+    @Query("UPDATE user_hike_stamps SET hikeId = :hikeId, `order` = :order, collectedAt = :date WHERE id = :id")
+    suspend fun moveStamp(id: Int, hikeId: Int, order: Int, date: String)
+
+    @Query("DELETE FROM user_hike_stamps WHERE id = :id")
+    suspend fun deleteStampEntry(id: Int)
+
     /** Delete every hike stamp record for a physical stamp point. */
     @Query("DELETE FROM user_hike_stamps WHERE stampPointId = :stampPointId")
     suspend fun deleteAllStampsForPoint(stampPointId: Int)
+
+    @Query("SELECT id, date FROM user_hikes")
+    fun getHikeDatesLive(): LiveData<List<HikeDate>>
 
     /** Remove hikes that have no stamps left. */
     @Query("DELETE FROM user_hikes WHERE id NOT IN (SELECT DISTINCT hikeId FROM user_hike_stamps)")
     suspend fun deleteEmptyHikes()
 }
+
+data class HikeDate(val id: Int, val date: String)

@@ -122,7 +122,7 @@ private fun SegmentCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val allCollected = row.stampCount > 0 && row.collectedCount == row.stampCount
+    val allCollected = row.completed
     Card(
         modifier = modifier
             .fillMaxWidth()

@@ -83,7 +83,7 @@ object GpxParser {
         return waypoints
     }
 
-    data class TrackPoint(val lat: Double, val lon: Double)
+    data class TrackPoint(val lat: Double, val lon: Double, val ele: Double = 0.0)
 
     /**
      * Extracts ordered track points from <trkpt> elements.
@@ -98,7 +98,18 @@ object GpxParser {
             if (eventType == XmlPullParser.START_TAG && parser.name == "trkpt") {
                 val lat = parser.getAttributeValue(null, "lat")?.toDoubleOrNull()
                 val lon = parser.getAttributeValue(null, "lon")?.toDoubleOrNull()
-                if (lat != null && lon != null) points.add(TrackPoint(lat, lon))
+                // Read the nested <ele> (if any) up to the closing </trkpt>.
+                var ele = 0.0
+                var ev = parser.next()
+                while (ev != XmlPullParser.END_DOCUMENT &&
+                    !(ev == XmlPullParser.END_TAG && parser.name == "trkpt")
+                ) {
+                    if (ev == XmlPullParser.START_TAG && parser.name == "ele") {
+                        ele = parser.nextText().trim().toDoubleOrNull() ?: 0.0
+                    }
+                    ev = parser.next()
+                }
+                if (lat != null && lon != null) points.add(TrackPoint(lat, lon, ele))
             }
             eventType = parser.next()
         }

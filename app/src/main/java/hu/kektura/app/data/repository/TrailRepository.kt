@@ -1,12 +1,16 @@
 package hu.kektura.app.data.repository
 
 import androidx.lifecycle.LiveData
+import androidx.room.withTransaction
 import hu.kektura.app.data.db.AppDatabase
+import hu.kektura.app.data.db.HikeDate
 import hu.kektura.app.data.model.GpxSegment
 import hu.kektura.app.data.model.StampPoint
 import hu.kektura.app.data.model.UserHike
 import hu.kektura.app.data.model.UserHikeStamp
 import hu.kektura.app.util.GpxParser
+
+enum class EntryUpdateResult { OK, CONFLICT, NOT_FOUND }
 
 class TrailRepository(private val db: AppDatabase) {
 
@@ -76,25 +80,98 @@ class TrailRepository(private val db: AppDatabase) {
      * The same stamp can be recorded on multiple dates (shared endpoint support).
      * Duplicate within the same day's hike is silently ignored.
      */
-    suspend fun recordStamp(stampPointId: Int, date: String, notes: String = "") {
+    suspend fun recordStamp(stampPointId: Int, date: String, notes: String = ""): Boolean {
         val hikeId = db.userHikeDao().getHikeByDate(date)?.id
             ?: db.userHikeDao().insertHike(UserHike(date = date)).toInt()
-        if (db.userHikeDao().getStampInHike(hikeId, stampPointId) != null) return
-        val maxOrder = db.userHikeDao().getMaxOrderForHike(hikeId) ?: 0
-        db.userHikeDao().insertHikeStamp(
-            UserHikeStamp(
-                hikeId = hikeId,
-                stampPointId = stampPointId,
-                order = maxOrder + 1,
-                collectedAt = date,
-                notes = notes
+        var added = false
+        // A stamp code shared by several segments (end of one / start of the next)
+        // is one physical stamp: credit every point carrying the same code.
+        for (id in idsSharingCode(stampPointId)) {
+            val existing = db.userHikeDao().getStampInHike(hikeId, id)
+            if (existing != null) {
+                if (notes.isNotBlank() && existing.notes != notes) {
+                    db.userHikeDao().updateStampNotes(existing.id, notes)
+                }
+                continue
+            }
+            val maxOrder = db.userHikeDao().getMaxOrderForHike(hikeId) ?: 0
+            db.userHikeDao().insertHikeStamp(
+                UserHikeStamp(
+                    hikeId = hikeId,
+                    stampPointId = id,
+                    order = maxOrder + 1,
+                    collectedAt = date,
+                    notes = notes
+                )
             )
-        )
+            added = true
+        }
+        return added
     }
+
+    /**
+     * Resolves entry ids to the full set of entries they stand for: the entries themselves
+     * plus the same-hike entries of every stamp point sharing their stamp code.
+     */
+    private suspend fun expandEntries(entryIds: List<Int>): List<UserHikeStamp> {
+        val dao = db.userHikeDao()
+        val result = LinkedHashMap<Int, UserHikeStamp>()
+        for (eid in entryIds) {
+            val e = dao.getStampEntry(eid) ?: continue
+            result[e.id] = e
+            for (pid in idsSharingCode(e.stampPointId)) {
+                dao.getStampInHike(e.hikeId, pid)?.let { result[it.id] = it }
+            }
+        }
+        return result.values.toList()
+    }
+
+    /**
+     * Changes the date and/or note of existing collection entries. Entries are moved to the
+     * hike of [newDate]. Refused (CONFLICT) if any of them is already recorded on [newDate].
+     */
+    suspend fun updateEntries(entryIds: List<Int>, newDate: String, notes: String): EntryUpdateResult =
+        db.withTransaction {
+            val dao = db.userHikeDao()
+            val entries = expandEntries(entryIds)
+            if (entries.isEmpty()) return@withTransaction EntryUpdateResult.NOT_FOUND
+            val moving = entries.filter { it.collectedAt != newDate }
+            if (moving.isNotEmpty()) {
+                val target = dao.getHikeByDate(newDate)
+                if (target != null &&
+                    moving.any { dao.getStampInHike(target.id, it.stampPointId) != null }
+                ) return@withTransaction EntryUpdateResult.CONFLICT
+                val targetId = target?.id ?: dao.insertHike(UserHike(date = newDate)).toInt()
+                var order = dao.getMaxOrderForHike(targetId) ?: 0
+                for (m in moving) dao.moveStamp(m.id, targetId, ++order, newDate)
+            }
+            for (e in entries) dao.updateStampNotes(e.id, notes)
+            dao.deleteEmptyHikes()
+            EntryUpdateResult.OK
+        }
+
+    /** Deletes single collection entries (and their same-code copies); prunes empty hikes. */
+    suspend fun deleteEntries(entryIds: List<Int>) {
+        db.withTransaction {
+            expandEntries(entryIds).forEach { db.userHikeDao().deleteStampEntry(it.id) }
+            db.userHikeDao().deleteEmptyHikes()
+        }
+    }
+
+    /** [stampPointId] plus all other stamp points with the identical stamp code. */
+    private suspend fun idsSharingCode(stampPointId: Int): Set<Int> {
+        val code = db.stampPointDao().getStampCode(stampPointId).orEmpty()
+        val ids = linkedSetOf(stampPointId)
+        if (code.isNotBlank()) ids.addAll(db.stampPointDao().getIdsByStampCode(code))
+        return ids
+    }
+
+    /** hikeId -> date, for same-date segment-part computation. */
+    val hikeDates: LiveData<List<HikeDate>> = db.userHikeDao().getHikeDatesLive()
 
     /** Removes ALL collection records for [stampPointId], then prunes now-empty hikes. */
     suspend fun removeAllStampsForPoint(stampPointId: Int) {
-        db.userHikeDao().deleteAllStampsForPoint(stampPointId)
+        for (id in idsSharingCode(stampPointId)) db.userHikeDao().deleteAllStampsForPoint(id)
         db.userHikeDao().deleteEmptyHikes()
     }
 

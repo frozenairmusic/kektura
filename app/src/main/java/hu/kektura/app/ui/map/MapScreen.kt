@@ -51,6 +51,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.gson.JsonObject
 import hu.kektura.app.data.SettingsStore
+import hu.kektura.app.ui.common.StampCollectSheet
+import hu.kektura.app.ui.common.StampHistoryRow
+import hu.kektura.app.util.TrailSection
 import hu.kektura.app.data.model.GpxSegment
 import hu.kektura.app.data.model.StampPoint
 import hu.kektura.app.data.model.UserHikeStamp
@@ -319,23 +322,49 @@ fun MapScreen(
         )
     }
 
-    // Stamp info bottom sheet
+    // Stamp bottom sheet: info + collection history (editable) + add for any date
     selectedStamp?.let { stamp ->
-        ModalBottomSheet(onDismissRequest = { selectedStamp = null }) {
-            StampSheetContent(
-                stamp = stamp,
-                collectionHistory = allHikeStamps.filter { it.stampPointId == stamp.id }
-                    .sortedByDescending { it.collectedAt },
-                onCollectToday = {
-                    viewModel.quickRecordToday(stamp.id)
-                    selectedStamp = null
-                },
-                onRemoveAll = {
-                    viewModel.quickRemoveAll(stamp.id)
-                    selectedStamp = null
+        val sheetError by viewModel.sheetError.collectAsStateWithLifecycle()
+        val rows = allHikeStamps
+            .filter { it.stampPointId == stamp.id }
+            .groupBy { it.collectedAt }
+            .map { (date, entries) ->
+                StampHistoryRow(
+                    date = date,
+                    notes = entries.map { it.notes }.filter { it.isNotBlank() }
+                        .distinct().joinToString(" · "),
+                    entryIds = entries.map { it.id }
+                )
+            }
+            .sortedByDescending { it.date }
+        val close = { selectedStamp = null; viewModel.clearSheetError() }
+        StampCollectSheet(
+            title = stamp.name,
+            subtitle = stamp.region.takeIf { it.isNotBlank() },
+            rows = rows,
+            error = sheetError,
+            onAdd = { date, notes -> viewModel.addEntry(stamp.id, date, notes) },
+            onEdit = { row, date, notes -> viewModel.editEntries(row.entryIds, date, notes) },
+            onDelete = { row -> viewModel.deleteEntries(row.entryIds) },
+            onDeleteAll = { viewModel.quickRemoveAll(stamp.id) },
+            onDismiss = close,
+            header = {
+                if (stamp.stampCode.isNotBlank()) {
+                    Text(
+                        text = stamp.stampCode,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
-            )
-        }
+                if (stamp.notes.isNotBlank()) {
+                    Text(
+                        text = stamp.notes,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        )
     }
 }
 
@@ -433,96 +462,3 @@ private fun downloadOfflineRegion(context: Context, onMessage: (String) -> Unit)
         }
     )
 }
-
-@Composable
-private fun StampSheetContent(
-    stamp: StampPoint,
-    collectionHistory: List<UserHikeStamp>,
-    onCollectToday: () -> Unit,
-    onRemoveAll: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 8.dp)
-            .padding(bottom = 32.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        Text(
-            text = stamp.name,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold
-        )
-        if (stamp.region.isNotBlank()) {
-            Text(
-                text = stamp.region,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        if (stamp.stampCode.isNotBlank()) {
-            Text(
-                text = stamp.stampCode,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-        if (stamp.notes.isNotBlank()) {
-            Text(
-                text = stamp.notes,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        // Collection history
-        if (collectionHistory.isNotEmpty()) {
-            Spacer(Modifier.height(4.dp))
-            HorizontalDivider()
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = "Korábbi begyűjtések",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            collectionHistory.forEach { entry ->
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = entry.collectedAt,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium
-                    )
-                    if (entry.notes.isNotBlank()) {
-                        Text(
-                            text = entry.notes,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-            HorizontalDivider()
-        }
-
-        Spacer(Modifier.height(4.dp))
-        Button(
-            onClick = onCollectToday,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Begyűjt (mai dátum)")
-        }
-
-        if (collectionHistory.isNotEmpty()) {
-            androidx.compose.material3.TextButton(
-                onClick = onRemoveAll,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.textButtonColors(
-                    contentColor = MaterialTheme.colorScheme.error
-                )
-            ) {
-                Text("Összes bejegyzés törlése")
-            }
-        }
-    }
-}
-

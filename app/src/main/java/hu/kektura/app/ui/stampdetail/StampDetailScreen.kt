@@ -48,6 +48,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import hu.kektura.app.ui.common.StampCollectSheet
 import hu.kektura.app.ui.theme.StampCollected
 import hu.kektura.app.ui.theme.StampPending
 import java.util.Calendar
@@ -68,10 +69,13 @@ fun StampDetailScreen(
     val list by viewModel.groupedList.collectAsStateWithLifecycle()
     val segment by viewModel.segment.collectAsStateWithLifecycle()
     val collectSheet by viewModel.collectSheet.collectAsStateWithLifecycle()
+    val sheetRows by viewModel.sheetRows.collectAsStateWithLifecycle()
+    val sheetError by viewModel.sheetError.collectAsStateWithLifecycle()
 
     val headers = list.filterIsInstance<StampListItem.GroupHeader>()
     val total = headers.size
-    val collected = headers.count { it.group.allCollected }
+    val collected = headers.count { it.group.anyCollected }
+    val progress by viewModel.progress.collectAsStateWithLifecycle()
 
     Column(modifier = modifier.fillMaxSize()) {
         // Progress header
@@ -112,6 +116,30 @@ fun StampDetailScreen(
                     if (seg.elevationGainM > 0) {
                         Text(
                             text = "\u2191 ${seg.elevationGainM} m  \u2193 ${seg.elevationLossM} m",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+
+        progress?.let { pr ->
+            if (pr.parts.isNotEmpty() || pr.complete) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = if (pr.complete) "Szakasz teljesítve" else "Teljesített szakaszrészek",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (pr.complete) StampCollected else MaterialTheme.colorScheme.onSurface
+                    )
+                    pr.parts.forEach { part ->
+                        Text(
+                            text = "${part.date}: ${pr.groups[part.fromIndex].name} \u2192 " +
+                                "${pr.groups[part.toIndex].name} (${part.stampCount} bélyegző)",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -161,126 +189,23 @@ fun StampDetailScreen(
         }
     }
 
-    // Collection bottom sheet — shown over the list when user taps the collect icon
+    // Collection bottom sheet — history of dates (editable) + add a collection for any date
     collectSheet?.let { sheet ->
-        val isCollected = if (sheet.targetStampId != null) {
-            list.filterIsInstance<StampListItem.StampEntry>()
-                .find { it.item.point.id == sheet.targetStampId }?.item?.collected == true
-        } else {
-            headers.find { it.group.groupKey == sheet.groupKey }?.group?.allCollected == true
-        }
-        CollectSheet(
-            state = sheet,
-            isCollected = isCollected,
-            onDateChange = viewModel::updateCollectDate,
-            onNoteChange = viewModel::updateCollectNote,
-            onConfirm = { viewModel.confirmCollect() },
-            onRemoveAll = {
+        StampCollectSheet(
+            title = sheet.targetStampName.ifBlank { sheet.groupKey },
+            subtitle = if (sheet.targetStampId != null) "Egyedi bélyegző" else "Bélyegzőhely",
+            rows = sheetRows,
+            error = sheetError,
+            onAdd = { d, n -> viewModel.addEntry(d, n) },
+            onEdit = { r, d, n -> viewModel.editEntry(r, d, n) },
+            onDelete = { r -> viewModel.deleteEntry(r) },
+            onDeleteAll = {
                 if (sheet.targetStampId != null) viewModel.removeAllForStamp(sheet.targetStampId)
                 else viewModel.removeAllForGroup(sheet.groupKey)
+                viewModel.dismissCollectSheet()
             },
             onDismiss = viewModel::dismissCollectSheet
         )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun CollectSheet(
-    state: CollectSheetState,
-    isCollected: Boolean,
-    onDateChange: (String) -> Unit,
-    onNoteChange: (String) -> Unit,
-    onConfirm: () -> Unit,
-    onRemoveAll: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    var showDatePicker by remember { mutableStateOf(false) }
-
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = state.targetStampName.ifBlank { state.groupKey },
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = if (state.targetStampId != null) "Egyedi bélyegző rögzítése"
-                       else "Begyűjtés rögzítése",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            HorizontalDivider()
-
-            // Date selector row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text(
-                        text = "Dátum",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(text = state.date, style = MaterialTheme.typography.bodyLarge)
-                }
-                TextButton(onClick = { showDatePicker = true }) { Text("Módosít") }
-            }
-
-            OutlinedTextField(
-                value = state.notes,
-                onValueChange = onNoteChange,
-                label = { Text("Megjegyzés (opcionális)") },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 2,
-                maxLines = 4
-            )
-
-            Button(onClick = onConfirm, modifier = Modifier.fillMaxWidth()) {
-                Text("Begyűjt")
-            }
-
-            if (isCollected) {
-                TextButton(
-                    onClick = { onRemoveAll(); onDismiss() },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text("Bejegyzések törlése")
-                }
-            }
-        }
-    }
-
-    if (showDatePicker) {
-        val dpState = rememberDatePickerState(
-            initialSelectedDateMillis = dateStringToEpochMillis(state.date)
-        )
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    dpState.selectedDateMillis?.let { onDateChange(epochMillisToDateString(it)) }
-                    showDatePicker = false
-                }) { Text("OK") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("Mégse") }
-            }
-        ) {
-            DatePicker(state = dpState)
-        }
     }
 }
 
@@ -327,10 +252,10 @@ private fun GroupHeaderCard(
             // Tapping always opens the sheet: for first-time collection or to add another entry
             IconButton(onClick = onOpenCollect) {
                 Icon(
-                    imageVector = if (group.allCollected)
+                    imageVector = if (group.anyCollected)
                         Icons.Filled.CheckCircle else Icons.Outlined.Circle,
                     contentDescription = "Begyűjtés kezelése",
-                    tint = if (group.allCollected) StampCollected else StampPending,
+                    tint = if (group.anyCollected) StampCollected else StampPending,
                     modifier = Modifier.size(28.dp)
                 )
             }
@@ -426,24 +351,4 @@ private fun StampEntryCard(
             }
         }
     }
-}
-
-// ── Date helpers ──────────────────────────────────────────────────────────────
-
-private fun dateStringToEpochMillis(date: String): Long {
-    val parts = date.split("-")
-    val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
-    cal.clear()
-    cal.set(parts[0].toInt(), parts[1].toInt() - 1, parts[2].toInt())
-    return cal.timeInMillis
-}
-
-private fun epochMillisToDateString(millis: Long): String {
-    val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
-    cal.timeInMillis = millis
-    return "%04d-%02d-%02d".format(
-        cal.get(Calendar.YEAR),
-        cal.get(Calendar.MONTH) + 1,
-        cal.get(Calendar.DAY_OF_MONTH)
-    )
 }

@@ -9,8 +9,9 @@ import hu.kektura.app.KekturaApp
 import hu.kektura.app.data.model.GpxSegment
 import hu.kektura.app.data.model.StampPoint
 import hu.kektura.app.data.model.UserHikeStamp
-import hu.kektura.app.data.repository.TrailRepository.Companion.groupKeyFor
-import hu.kektura.app.util.GpxParser
+import hu.kektura.app.data.repository.EntryUpdateResult
+import hu.kektura.app.util.TrailSection
+import hu.kektura.app.util.TrailSections
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,8 +23,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
-data class TrailSection(val points: List<GpxParser.TrackPoint>, val completed: Boolean)
 
 class MapViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -58,43 +57,34 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
             .map { it.toSet() }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
-    /** All hike stamp records — used both for completedLegs and for per-stamp history in the map sheet. */
+    /** All hike stamp records — used for per-stamp history in the map sheet. */
     val allHikeStamps: StateFlow<List<UserHikeStamp>> =
         repo.allHikeStamps
             .asFlow()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /**
-     * Set of (fromGroupKey, toGroupKey) pairs that appear consecutively in at least one hike.
-     * Used to determine whether a trail section between two stamp groups is completed.
+     * stamp code -> dates on which any stamp point with that code was stamped.
+     * Points sharing a code are one physical stamp (e.g. shared segment endpoints), so
+     * this is deliberately independent of which segment's row was tapped.
      */
-    val completedLegs: StateFlow<Set<Pair<String, String>>> =
-        combine(
-            allHikeStamps,
-            repo.allStampPoints.asFlow()
-        ) { hikeStamps, allPoints ->
-            withContext(Dispatchers.Default) {
-                val groupKeyById = allPoints.associate { sp ->
-                    sp.id to groupKeyFor(sp.stampCode).ifBlank { sp.stampCode }
-                }
-                hikeStamps.groupBy { it.hikeId }.values.flatMap { stamps ->
-                    stamps.sortedBy { it.order }.zipWithNext { a, b ->
-                        val fromKey = groupKeyById[a.stampPointId] ?: return@zipWithNext null
-                        val toKey = groupKeyById[b.stampPointId] ?: return@zipWithNext null
-                        if (fromKey == toKey) null else fromKey to toKey
-                    }.filterNotNull()
-                }.toSet()
-            }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+    val datesByCode: StateFlow<Map<String, Set<String>>> =
+        combine(allHikeStamps, repo.allStampPoints.asFlow()) { hikeStamps, allPoints ->
+            withContext(Dispatchers.Default) { TrailSections.datesByCode(hikeStamps, allPoints) }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     /**
-     * Trail split into sections. A section between two adjacent stamp groups is
-     * marked [TrailSection.completed] when both group keys appear consecutively in any hike.
+     * Trail split into sections, in TRAIL order (stamp locations snapped onto the track).
+     * A section between two adjacent stamp locations is [TrailSection.completed] when both
+     * were stamped on a common date; a location with several stamp places (_1, _2, ...)
+     * counts as stamped when any of them is.
      */
     val trailSections: StateFlow<List<TrailSection>> =
-        combine(segments, stampPoints, completedLegs) { segs, stamps, legs ->
+        combine(segments, stampPoints, datesByCode) { segs, stamps, dates ->
             withContext(Dispatchers.Default) {
-                segs.flatMap { seg -> computeSections(seg, stamps, legs) }
+                segs.flatMap { seg ->
+                    TrailSections.build(seg, stamps, dates) { Log.d("TrailSections", "seg ${seg.id}: $it") }
+                }
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -104,6 +94,32 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repo.syncWaypointsFromGpxText(segment.id, gpxContent, segment.region)
         }
+    }
+
+    private val _sheetError = MutableStateFlow<String?>(null)
+    val sheetError: StateFlow<String?> = _sheetError
+
+    fun clearSheetError() { _sheetError.value = null }
+
+    /** Records [stampPointId] for any (past) date with an optional note. */
+    fun addEntry(stampPointId: Int, date: String, notes: String) {
+        viewModelScope.launch {
+            val added = repo.recordStamp(stampPointId, date, notes)
+            _sheetError.value = if (added) null else "Erre a napra már rögzítve van."
+        }
+    }
+
+    fun editEntries(entryIds: List<Int>, date: String, notes: String) {
+        viewModelScope.launch {
+            _sheetError.value = when (repo.updateEntries(entryIds, date, notes)) {
+                EntryUpdateResult.CONFLICT -> "Erre a napra már rögzítve van."
+                else -> null
+            }
+        }
+    }
+
+    fun deleteEntries(entryIds: List<Int>) {
+        viewModelScope.launch { repo.deleteEntries(entryIds); _sheetError.value = null }
     }
 
     /** Records this stamp point under today's date. Multiple stamps on the same day share a hike. */
@@ -118,83 +134,5 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
     /** Removes all collection records for this stamp point (prunes empty hikes automatically). */
     fun quickRemoveAll(stampPointId: Int) {
         viewModelScope.launch { repo.removeAllStampsForPoint(stampPointId) }
-    }
-
-    companion object {
-
-        private fun computeSections(
-            seg: GpxSegment,
-            stamps: List<StampPoint>,
-            completedLegs: Set<Pair<String, String>>
-        ): List<TrailSection> {
-            val gpx = seg.gpxContent ?: return emptyList()
-            val track = try {
-                GpxParser.parseTracks(gpx.byteInputStream())
-            } catch (_: Exception) {
-                return emptyList()
-            }
-            // Only use actual stamp stations (those with a recognized stamp code) as
-            // section boundaries. Informational waypoints (junctions, parking, etc.)
-            // in the GPX must not split sections.
-            val segStamps = stamps
-                .filter { it.segmentId == seg.id && it.stampCode.isNotBlank() }
-                .sortedBy { it.id }
-            val sections = splitTrackByStamps(track, segStamps, completedLegs)
-            Log.d("TrailSections", "seg ${seg.id}: ${track.size} pts, " +
-                    "${segStamps.size} stamps, ${sections.count { it.completed }} completed sections")
-            return sections
-        }
-
-        private fun splitTrackByStamps(
-            track: List<GpxParser.TrackPoint>,
-            stamps: List<StampPoint>,
-            completedLegs: Set<Pair<String, String>>
-        ): List<TrailSection> {
-            if (track.isEmpty()) return emptyList()
-            if (stamps.isEmpty()) return listOf(TrailSection(track, false))
-
-            // Snap each stamp to its nearest track point index, then sort by that index.
-            val snapped = stamps
-                .map { sp -> sp to nearestTrackIndex(track, sp.latitude, sp.longitude) }
-                .sortedBy { it.second }
-
-            val sections = mutableListOf<TrailSection>()
-            var cursor = 0
-
-            snapped.forEachIndexed { i, (stamp, snapIdx) ->
-                val end = snapIdx.coerceIn(cursor, track.lastIndex)
-                if (end > cursor) {
-                    val prevStamp = if (i == 0) null else snapped[i - 1].first
-                    val completed = prevStamp != null && run {
-                        val fromKey = groupKeyFor(prevStamp.stampCode).ifBlank { prevStamp.stampCode }
-                        val toKey = groupKeyFor(stamp.stampCode).ifBlank { stamp.stampCode }
-                        completedLegs.contains(fromKey to toKey)
-                    }
-                    sections.add(TrailSection(track.subList(cursor, end + 1), completed))
-                    cursor = end
-                }
-            }
-
-            // Tail section after the last stamp — never completed.
-            if (cursor < track.lastIndex) {
-                sections.add(TrailSection(track.subList(cursor, track.size), false))
-            }
-
-            return sections
-        }
-
-        private fun nearestTrackIndex(
-            track: List<GpxParser.TrackPoint>,
-            lat: Double,
-            lon: Double
-        ): Int {
-            var best = 0
-            var bestDist = Double.MAX_VALUE
-            track.forEachIndexed { i, pt ->
-                val d = (pt.lat - lat) * (pt.lat - lat) + (pt.lon - lon) * (pt.lon - lon)
-                if (d < bestDist) { bestDist = d; best = i }
-            }
-            return best
-        }
     }
 }
