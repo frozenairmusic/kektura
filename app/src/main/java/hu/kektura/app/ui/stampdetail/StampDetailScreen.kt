@@ -19,16 +19,28 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.outlined.Circle
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -36,9 +48,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import hu.kektura.app.ui.common.StampCollectSheet
 import hu.kektura.app.ui.theme.StampCollected
 import hu.kektura.app.ui.theme.StampPending
+import java.util.Calendar
+import java.util.TimeZone
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StampDetailScreen(
     segmentId: Int,
@@ -52,10 +68,14 @@ fun StampDetailScreen(
 ) {
     val list by viewModel.groupedList.collectAsStateWithLifecycle()
     val segment by viewModel.segment.collectAsStateWithLifecycle()
+    val collectSheet by viewModel.collectSheet.collectAsStateWithLifecycle()
+    val sheetRows by viewModel.sheetRows.collectAsStateWithLifecycle()
+    val sheetError by viewModel.sheetError.collectAsStateWithLifecycle()
 
     val headers = list.filterIsInstance<StampListItem.GroupHeader>()
     val total = headers.size
-    val collected = headers.count { it.group.allCollected }
+    val collected = headers.count { it.group.anyCollected }
+    val progress by viewModel.progress.collectAsStateWithLifecycle()
 
     Column(modifier = modifier.fillMaxSize()) {
         // Progress header
@@ -104,6 +124,30 @@ fun StampDetailScreen(
             }
         }
 
+        progress?.let { pr ->
+            if (pr.parts.isNotEmpty() || pr.complete) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = if (pr.complete) "Szakasz teljesítve" else "Teljesített szakaszrészek",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (pr.complete) StampCollected else MaterialTheme.colorScheme.onSurface
+                    )
+                    pr.parts.forEach { part ->
+                        Text(
+                            text = "${part.date}: ${pr.groups[part.fromIndex].name} \u2192 " +
+                                "${pr.groups[part.toIndex].name} (${part.stampCount} bélyegző)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+
         HorizontalDivider()
 
         if (list.isEmpty()) {
@@ -133,16 +177,35 @@ fun StampDetailScreen(
                         is StampListItem.GroupHeader -> GroupHeaderCard(
                             group = item.group,
                             onToggle = { viewModel.toggleGroup(item.group.groupKey) },
-                            onCollect = { viewModel.collectGroup(item.group.groupKey) },
-                            onRemove = { viewModel.removeGroup(item.group.groupKey) }
+                            onOpenCollect = { viewModel.openCollectSheet(item.group.groupKey) }
                         )
                         is StampListItem.StampEntry -> StampEntryCard(
-                            entry = item
+                            entry = item,
+                            onOpenCollect = { viewModel.openCollectSheetForStamp(item.item.point.id) }
                         )
                     }
                 }
             }
         }
+    }
+
+    // Collection bottom sheet — history of dates (editable) + add a collection for any date
+    collectSheet?.let { sheet ->
+        StampCollectSheet(
+            title = sheet.targetStampName.ifBlank { sheet.groupKey },
+            subtitle = if (sheet.targetStampId != null) "Egyedi bélyegző" else "Bélyegzőhely",
+            rows = sheetRows,
+            error = sheetError,
+            onAdd = { d, n -> viewModel.addEntry(d, n) },
+            onEdit = { r, d, n -> viewModel.editEntry(r, d, n) },
+            onDelete = { r -> viewModel.deleteEntry(r) },
+            onDeleteAll = {
+                if (sheet.targetStampId != null) viewModel.removeAllForStamp(sheet.targetStampId)
+                else viewModel.removeAllForGroup(sheet.groupKey)
+                viewModel.dismissCollectSheet()
+            },
+            onDismiss = viewModel::dismissCollectSheet
+        )
     }
 }
 
@@ -150,8 +213,7 @@ fun StampDetailScreen(
 private fun GroupHeaderCard(
     group: StampGroupUi,
     onToggle: () -> Unit,
-    onCollect: () -> Unit,
-    onRemove: () -> Unit,
+    onOpenCollect: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -186,13 +248,14 @@ private fun GroupHeaderCard(
                 }
             }
 
-            // Collect/uncollect button
-            IconButton(onClick = { if (group.allCollected) onRemove() else onCollect() }) {
+            // Collect status icon — click to open collect sheet
+            // Tapping always opens the sheet: for first-time collection or to add another entry
+            IconButton(onClick = onOpenCollect) {
                 Icon(
-                    imageVector = if (group.allCollected)
+                    imageVector = if (group.anyCollected)
                         Icons.Filled.CheckCircle else Icons.Outlined.Circle,
-                    contentDescription = if (group.allCollected) "Visszavonás" else "Begyűjtés",
-                    tint = if (group.allCollected) StampCollected else StampPending,
+                    contentDescription = "Begyűjtés kezelése",
+                    tint = if (group.anyCollected) StampCollected else StampPending,
                     modifier = Modifier.size(28.dp)
                 )
             }
@@ -217,6 +280,7 @@ private fun GroupHeaderCard(
 @Composable
 private fun StampEntryCard(
     entry: StampListItem.StampEntry,
+    onOpenCollect: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val pt = entry.item.point
@@ -224,7 +288,8 @@ private fun StampEntryCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = 8.dp),
+            .padding(start = 8.dp)
+            .clickable(onClick = onOpenCollect),
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)

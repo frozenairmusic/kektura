@@ -6,7 +6,7 @@ import androidx.lifecycle.asFlow
 import androidx.lifecycle.viewModelScope
 import hu.kektura.app.KekturaApp
 import hu.kektura.app.data.model.GpxSegment
-import hu.kektura.app.data.repository.TrailRepository.Companion.groupKeyFor
+import hu.kektura.app.util.SegmentProgress
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -18,7 +18,8 @@ import kotlinx.coroutines.flow.stateIn
 data class SegmentRow(
     val segment: GpxSegment,
     val stampCount: Int,
-    val collectedCount: Int
+    val collectedCount: Int,
+    val completed: Boolean = false
 )
 
 class StampsViewModel(application: Application) : AndroidViewModel(application) {
@@ -38,19 +39,15 @@ class StampsViewModel(application: Application) : AndroidViewModel(application) 
                 repo.getSegmentsByTrailTypesLive(types).asFlow()
             },
             repo.allStampPoints.asFlow(),
-            repo.collectedPointIds.asFlow()
-        ) { segments, allStamps, collectedIdsList ->
-            val collectedIds = collectedIdsList.toSet()
+            repo.allHikeStamps.asFlow(),
+            repo.hikeDates.asFlow()
+        ) { segments, allStamps, hikeStamps, hikeDates ->
+            val dates = hikeDates.associate { it.id to it.date }
             val bySegment = allStamps.groupBy { it.segmentId }
             segments.map { seg ->
                 val stamps = bySegment[seg.id] ?: emptyList()
-                val groups = stamps.groupBy { sp ->
-                    groupKeyFor(sp.stampCode).ifBlank { sp.stampCode }
-                }
-                val collected = groups.values.count { grp ->
-                    grp.isNotEmpty() && grp.all { collectedIds.contains(it.id) }
-                }
-                SegmentRow(seg, groups.size, collected)
+                val progress = SegmentProgress.compute(stamps, hikeStamps) { dates[it].orEmpty() }
+                SegmentRow(seg, progress.groups.size, progress.stampedGroupKeys.size, progress.complete)
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 }

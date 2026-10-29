@@ -122,7 +122,7 @@ private fun SegmentCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val allCollected = row.stampCount > 0 && row.collectedCount == row.stampCount
+    val allCollected = row.completed
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -183,6 +183,13 @@ private fun SegmentCard(
                     append("%.1f km".format(row.segment.distanceKm))
                     if (row.segment.elevationGainM > 0) {
                         append("  \u2191 ${row.segment.elevationGainM} m  \u2193 ${row.segment.elevationLossM} m")
+                    }
+                    if (row.segment.durationMin > 0) {
+                        val h = row.segment.durationMin / 60
+                        val m = row.segment.durationMin % 60
+                        append("  \u23F1 ")
+                        if (h > 0) append("${h}h ")
+                        append("${m}m")
                     }
                 }
                 Text(

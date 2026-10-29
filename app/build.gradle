@@ -66,4 +66,7 @@ dependencies {
 
     // Coroutines
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
+
+    // MapLibre Native Android
+    implementation 'org.maplibre.gl:android-sdk:11.0.0'
 }
