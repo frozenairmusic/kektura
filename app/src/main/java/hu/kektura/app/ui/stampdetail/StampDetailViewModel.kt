@@ -15,9 +15,22 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 data class StampPointUi(val point: StampPoint, val collected: Boolean)
+
+data class CollectSheetState(
+    val groupKey: String,
+    val date: String,
+    val notes: String = "",
+    /** Non-null when the sheet is opened for a single stamp rather than the whole group. */
+    val targetStampId: Int? = null,
+    val targetStampName: String = ""
+)
 
 data class StampGroupUi(
     val groupKey: String,
@@ -91,16 +104,54 @@ class StampDetailViewModel(
         _collapsedGroups.value = if (current.contains(key)) current - key else current + key
     }
 
-    fun collectGroup(key: String) = viewModelScope.launch {
-        _stampUis.value
-            .filter { groupKeyFor(it.point.stampCode).ifBlank { it.point.stampCode } == key && !it.collected }
-            .forEach { repo.collectStamp(it.point.id) }
+    // ── Collect sheet ─────────────────────────────────────────────────────────
+
+    private val _collectSheet = MutableStateFlow<CollectSheetState?>(null)
+    val collectSheet: StateFlow<CollectSheetState?> = _collectSheet
+
+    fun openCollectSheet(groupKey: String) {
+        val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        _collectSheet.value = CollectSheetState(groupKey = groupKey, date = today)
     }
 
-    fun removeGroup(key: String) = viewModelScope.launch {
+    fun openCollectSheetForStamp(stampPointId: Int) {
+        val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        val ui = _stampUis.value.find { it.point.id == stampPointId } ?: return
+        val key = groupKeyFor(ui.point.stampCode).ifBlank { ui.point.stampCode }
+        _collectSheet.value = CollectSheetState(
+            groupKey = key,
+            date = today,
+            targetStampId = stampPointId,
+            targetStampName = ui.point.name
+        )
+    }
+
+    fun dismissCollectSheet() { _collectSheet.value = null }
+
+    fun updateCollectDate(date: String) { _collectSheet.update { it?.copy(date = date) } }
+
+    fun updateCollectNote(note: String) { _collectSheet.update { it?.copy(notes = note) } }
+
+    fun confirmCollect() = viewModelScope.launch {
+        val sheet = _collectSheet.value ?: return@launch
+        if (sheet.targetStampId != null) {
+            repo.recordStamp(sheet.targetStampId, sheet.date, sheet.notes)
+        } else {
+            _stampUis.value
+                .filter { groupKeyFor(it.point.stampCode).ifBlank { it.point.stampCode } == sheet.groupKey }
+                .forEach { repo.recordStamp(it.point.id, sheet.date, sheet.notes) }
+        }
+        _collectSheet.value = null
+    }
+
+    fun removeAllForGroup(groupKey: String) = viewModelScope.launch {
         _stampUis.value
-            .filter { groupKeyFor(it.point.stampCode).ifBlank { it.point.stampCode } == key && it.collected }
-            .forEach { repo.removeStamp(it.point.id) }
+            .filter { groupKeyFor(it.point.stampCode).ifBlank { it.point.stampCode } == groupKey }
+            .forEach { repo.removeAllStampsForPoint(it.point.id) }
+    }
+
+    fun removeAllForStamp(stampPointId: Int) = viewModelScope.launch {
+        repo.removeAllStampsForPoint(stampPointId)
     }
 
     class Factory(

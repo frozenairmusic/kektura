@@ -25,6 +25,6 @@ interface GpxSegmentDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAll(segments: List<GpxSegment>)
 
-    @Query("UPDATE gpx_segments SET name = :name, distanceKm = :distanceKm, elevationGainM = :gainM, elevationLossM = :lossM WHERE id = :id")
-    suspend fun updateMetadata(id: Int, name: String, distanceKm: Float, gainM: Int, lossM: Int)
+    @Query("UPDATE gpx_segments SET name = :name, distanceKm = :distanceKm, elevationGainM = :gainM, elevationLossM = :lossM, code = :code, durationMin = :durationMin, stampCount = :stampCount WHERE id = :id")
+    suspend fun updateMetadata(id: Int, name: String, distanceKm: Float, gainM: Int, lossM: Int, code: String?, durationMin: Int, stampCount: Int)
 }

@@ -184,6 +184,13 @@ private fun SegmentCard(
                     if (row.segment.elevationGainM > 0) {
                         append("  \u2191 ${row.segment.elevationGainM} m  \u2193 ${row.segment.elevationLossM} m")
                     }
+                    if (row.segment.durationMin > 0) {
+                        val h = row.segment.durationMin / 60
+                        val m = row.segment.durationMin % 60
+                        append("  \u23F1 ")
+                        if (h > 0) append("${h}h ")
+                        append("${m}m")
+                    }
                 }
                 Text(
                     text = info,

@@ -7,6 +7,20 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
+ * One waypoint-to-waypoint section of a segment, including the GPX track point
+ * indices that bound it (for polyline slicing on the map).
+ */
+data class RemoteSection(
+    val from: String,
+    val to: String,
+    val trackFrom: Int,       // zero-based trkpt index, first section is always 0
+    val trackTo: Int,         // zero-based trkpt index, last section is always N-1
+    val distanceKm: Float,
+    val elevationGainM: Int,
+    val elevationLossM: Int
+)
+
+/**
  * A single segment entry from the remote metadata.json.
  */
 data class RemoteSegmentMeta(
@@ -14,10 +28,14 @@ data class RemoteSegmentMeta(
     val segmentNumber: String,  // "01", "02", …
     val lastUpdated: String,    // "20251016"
     val filename: String,       // "okt_01_20251107.gpx"
+    val code: String,           // "OKT-01"
     val title: String,          // "Írott-kő - Sárvár"
     val distanceKm: Float,      // 72.5
     val elevationGainM: Int,    // 570
-    val elevationLossM: Int     // 1290
+    val elevationLossM: Int,    // 1290
+    val durationMin: Int,       // 1130 (minutes)
+    val stampCount: Int,        // 9
+    val sections: List<RemoteSection>
 ) {
     /**
      * Maps the remote trail key + segment number to the local Room entity ID.
@@ -51,7 +69,10 @@ data class RemoteSegmentMeta(
         region         = "",
         distanceKm     = distanceKm,
         elevationGainM = elevationGainM,
-        elevationLossM = elevationLossM
+        elevationLossM = elevationLossM,
+        code           = code,
+        durationMin    = durationMin,
+        stampCount     = stampCount
     )
 
     companion object {
@@ -93,17 +114,6 @@ object MetadataFetcher {
         }
     }
 
-    /**
-     * Parses the metadata JSON which has the structure:
-     * ```json
-     * {
-     *   "okt": { "01": { "last_updated": "20251107", "filename": "okt_01_20251107.gpx" }, … },
-     *   "ak":  { "01": { … }, … },
-     *   "rpddk": { "01": { … }, … },
-     *   "last_updated": "2026-03-03"
-     * }
-     * ```
-     */
     private fun parseMetadata(jsonText: String): List<RemoteSegmentMeta> {
         val root = JSONObject(jsonText)
         val result = mutableListOf<RemoteSegmentMeta>()
@@ -116,12 +126,53 @@ object MetadataFetcher {
                 val entry = trailObj.optJSONObject(segNumber) ?: continue
                 val lastUpdated = entry.optString("last_updated", "")
                 val filename = entry.optString("filename", "")
+                val code = entry.optString("code", "")
                 val title = entry.optString("title", "")
-                val distanceKm = entry.optString("distance", "0")
-                    .replace(",", ".")
-                    .replace(Regex("[^0-9.]"), "")
-                    .toFloatOrNull() ?: 0f
-                val (gainM, lossM) = parseEleStr(entry.optString("elevation", ""))
+
+                // Support both new numeric format (72.5) and old string format ("72,5 km")
+                val distanceKm = run {
+                    val raw = entry.opt("distance")
+                    when (raw) {
+                        is Number -> raw.toFloat()
+                        is String -> raw.replace(",", ".").replace(Regex("[^0-9.]"), "").toFloatOrNull() ?: 0f
+                        else -> 0f
+                    }
+                }
+
+                // Support both new separate fields and old combined "elevation" string
+                val gainM: Int
+                val lossM: Int
+                if (entry.has("elevation_gain")) {
+                    gainM = entry.optInt("elevation_gain", 0)
+                    lossM = entry.optInt("elevation_loss", 0)
+                } else {
+                    val parts = entry.optString("elevation", "").split("/")
+                    gainM = parts.getOrNull(0)?.replace(Regex("[^0-9]"), "")?.toIntOrNull() ?: 0
+                    lossM = parts.getOrNull(1)?.replace(Regex("[^0-9]"), "")?.toIntOrNull() ?: 0
+                }
+
+                val durationMin = entry.optInt("duration", 0)
+                val stampCount = entry.optInt("stamp_count", 0)
+
+                val sectionsArr = entry.optJSONArray("sections")
+                val sections = mutableListOf<RemoteSection>()
+                if (sectionsArr != null) {
+                    for (i in 0 until sectionsArr.length()) {
+                        val s = sectionsArr.optJSONObject(i) ?: continue
+                        sections.add(
+                            RemoteSection(
+                                from           = s.optString("from", ""),
+                                to             = s.optString("to", ""),
+                                trackFrom      = s.optInt("track_from", 0),
+                                trackTo        = s.optInt("track_to", 0),
+                                distanceKm     = s.optDouble("distance", 0.0).toFloat(),
+                                elevationGainM = s.optInt("elevation_gain", 0),
+                                elevationLossM = s.optInt("elevation_loss", 0)
+                            )
+                        )
+                    }
+                }
+
                 if (lastUpdated.isNotBlank() && filename.isNotBlank()) {
                     result.add(
                         RemoteSegmentMeta(
@@ -129,22 +180,19 @@ object MetadataFetcher {
                             segmentNumber  = segNumber,
                             lastUpdated    = lastUpdated,
                             filename       = filename,
+                            code           = code,
                             title          = title,
                             distanceKm     = distanceKm,
                             elevationGainM = gainM,
-                            elevationLossM = lossM
+                            elevationLossM = lossM,
+                            durationMin    = durationMin,
+                            stampCount     = stampCount,
+                            sections       = sections
                         )
                     )
                 }
             }
         }
         return result
-    }
-
-    private fun parseEleStr(raw: String): Pair<Int, Int> {
-        val parts = raw.split("/")
-        val gain = parts.getOrNull(0)?.replace(Regex("[^0-9]"), "")?.toIntOrNull() ?: 0
-        val loss = parts.getOrNull(1)?.replace(Regex("[^0-9]"), "")?.toIntOrNull() ?: 0
-        return gain to loss
     }
 }

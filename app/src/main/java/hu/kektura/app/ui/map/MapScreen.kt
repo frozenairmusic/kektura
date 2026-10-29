@@ -3,6 +3,7 @@ package hu.kektura.app.ui.map
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.location.LocationManager
 import android.graphics.PointF
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -18,8 +19,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -46,9 +49,11 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.gson.JsonObject
+import hu.kektura.app.data.SettingsStore
 import hu.kektura.app.data.model.GpxSegment
 import hu.kektura.app.data.model.StampPoint
-import hu.kektura.app.util.GpxParser
+import hu.kektura.app.data.model.UserHikeStamp
 import kotlinx.coroutines.launch
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
@@ -82,6 +87,7 @@ private const val SOURCE_STAMP = "stamp-source"
 private const val LAYER_TRAIL = "trail-layer"
 private const val LAYER_STAMP_COLLECTED = "stamp-collected-layer"
 private const val LAYER_STAMP_PENDING = "stamp-pending-layer"
+private const val LAYER_TRAIL_COMPLETE = "trail-complete-layer"
 
 /** Bounding box covering Hungary for offline tile downloads. */
 private val HUNGARY_BOUNDS = LatLngBounds.from(48.6, 23.1, 45.7, 16.1)
@@ -95,8 +101,15 @@ fun MapScreen(
     val segments by viewModel.segments.collectAsStateWithLifecycle()
     val stampPoints by viewModel.stampPoints.collectAsStateWithLifecycle()
     val collectedIds by viewModel.collectedIds.collectAsStateWithLifecycle()
+    val trailSections by viewModel.trailSections.collectAsStateWithLifecycle()
+    val allHikeStamps by viewModel.allHikeStamps.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
+
+    LaunchedEffect(Unit) {
+        val selected = SettingsStore.getSelectedTrails(context)
+        viewModel.selectedTrailTypes.value = selected.map { it.name }
+    }
     val scope = rememberCoroutineScope()
     val snackbarHost = remember { SnackbarHostState() }
 
@@ -154,14 +167,29 @@ fun MapScreen(
                     )
                 )
 
-                // Trail polyline source + layer
+                // Trail polyline source + two layers: incomplete (blue) / completed (orange)
                 style.addSource(GeoJsonSource(SOURCE_TRAIL, FeatureCollection.fromFeatures(listOf())))
                 style.addLayer(
                     LineLayer(LAYER_TRAIL, SOURCE_TRAIL).also { layer ->
+                        layer.setFilter(
+                            Expression.eq(Expression.get("completed"), Expression.literal(false))
+                        )
                         layer.setProperties(
                             PropertyFactory.lineColor("#1565C0"),
                             PropertyFactory.lineWidth(4f),
-                            PropertyFactory.lineOpacity(0.85f)
+                            PropertyFactory.lineOpacity(0.6f)
+                        )
+                    }
+                )
+                style.addLayer(
+                    LineLayer(LAYER_TRAIL_COMPLETE, SOURCE_TRAIL).also { layer ->
+                        layer.setFilter(
+                            Expression.eq(Expression.get("completed"), Expression.literal(true))
+                        )
+                        layer.setProperties(
+                            PropertyFactory.lineColor("#FF7043"),
+                            PropertyFactory.lineWidth(5f),
+                            PropertyFactory.lineOpacity(1f)
                         )
                     }
                 )
@@ -175,7 +203,7 @@ fun MapScreen(
                         )
                         layer.setProperties(
                             PropertyFactory.circleRadius(7f),
-                            PropertyFactory.circleColor("#4CAF50"),
+                            PropertyFactory.circleColor("#FF7043"),
                             PropertyFactory.circleStrokeWidth(1.5f),
                             PropertyFactory.circleStrokeColor("#FFFFFF")
                         )
@@ -188,7 +216,7 @@ fun MapScreen(
                         )
                         layer.setProperties(
                             PropertyFactory.circleRadius(7f),
-                            PropertyFactory.circleColor("#FF7043"),
+                            PropertyFactory.circleColor("#1565C0"),
                             PropertyFactory.circleStrokeWidth(1.5f),
                             PropertyFactory.circleStrokeColor("#FFFFFF")
                         )
@@ -214,21 +242,27 @@ fun MapScreen(
         }
     }
 
-    // Enable GPS blue dot once the user grants location permission.
+    // Enable GPS blue dot once the user grants location permission, then center to location.
     LaunchedEffect(locationEnabled, styleRef) {
         val style = styleRef ?: return@LaunchedEffect
         val map = mapRef ?: return@LaunchedEffect
-        if (locationEnabled) enableLocationComponent(context, map, style)
+        if (locationEnabled) {
+            enableLocationComponent(context, map, style)
+            centerToUserLocation(context, map)
+        }
     }
 
-    // Rebuild trail polylines when the set of available segments changes.
+    // Keep DB stamp positions in sync with the embedded GPX waypoints.
     LaunchedEffect(styleRef, segments) {
-        val style = styleRef ?: return@LaunchedEffect
-        updateTrailSource(style, segments)
-        // Keep DB stamp positions in sync with the embedded GPX waypoints.
         segments.forEach { seg ->
             if (seg.gpxContent != null) viewModel.syncWaypointsFromGpx(seg)
         }
+    }
+
+    // Rebuild trail with completion coloring whenever sections or collection state changes.
+    LaunchedEffect(styleRef, trailSections) {
+        val style = styleRef ?: return@LaunchedEffect
+        updateTrailSource(style, trailSections)
     }
 
     // Refresh stamp circles when collection state changes.
@@ -290,13 +324,14 @@ fun MapScreen(
         ModalBottomSheet(onDismissRequest = { selectedStamp = null }) {
             StampSheetContent(
                 stamp = stamp,
-                collected = collectedIds.contains(stamp.id),
-                onCollect = {
-                    viewModel.markCollected(stamp.id)
+                collectionHistory = allHikeStamps.filter { it.stampPointId == stamp.id }
+                    .sortedByDescending { it.collectedAt },
+                onCollectToday = {
+                    viewModel.quickRecordToday(stamp.id)
                     selectedStamp = null
                 },
-                onRemove = {
-                    viewModel.removeStamp(stamp.id)
+                onRemoveAll = {
+                    viewModel.quickRemoveAll(stamp.id)
                     selectedStamp = null
                 }
             )
@@ -305,6 +340,26 @@ fun MapScreen(
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+private val BUDAPEST = LatLng(47.4979, 19.0402)
+
+/** Rough bounding box of Hungary. */
+private fun isInHungary(lat: Double, lon: Double) =
+    lat in 45.7..48.6 && lon in 16.1..23.1
+
+@SuppressLint("MissingPermission")
+private fun centerToUserLocation(context: Context, map: MapLibreMap) {
+    val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+    val loc = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+        ?: lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+        ?: lm.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER)
+    val target = if (loc != null && isInHungary(loc.latitude, loc.longitude)) {
+        LatLng(loc.latitude, loc.longitude)
+    } else {
+        BUDAPEST
+    }
+    map.animateCamera(CameraUpdateFactory.newLatLngZoom(target, 10.0))
+}
 
 @SuppressLint("MissingPermission")
 private fun enableLocationComponent(context: Context, map: MapLibreMap, style: Style) {
@@ -317,16 +372,14 @@ private fun enableLocationComponent(context: Context, map: MapLibreMap, style: S
     locationComponent.renderMode = RenderMode.COMPASS
 }
 
-private fun updateTrailSource(style: Style, segments: List<GpxSegment>) {
-    val features = segments.mapNotNull { seg ->
-        val gpxContent = seg.gpxContent ?: return@mapNotNull null
-        val pts = try {
-            GpxParser.parseTracks(gpxContent.byteInputStream())
-        } catch (_: Exception) {
-            return@mapNotNull null
-        }
-        if (pts.isEmpty()) return@mapNotNull null
-        Feature.fromGeometry(LineString.fromLngLats(pts.map { Point.fromLngLat(it.lon, it.lat) }))
+private fun updateTrailSource(style: Style, sections: List<TrailSection>) {
+    val features = sections.mapNotNull { section ->
+        if (section.points.size < 2) return@mapNotNull null
+        val props = JsonObject().apply { addProperty("completed", section.completed) }
+        Feature.fromGeometry(
+            LineString.fromLngLats(section.points.map { Point.fromLngLat(it.lon, it.lat) }),
+            props
+        )
     }
     (style.getSource(SOURCE_TRAIL) as? GeoJsonSource)
         ?.setGeoJson(FeatureCollection.fromFeatures(features))
@@ -384,9 +437,9 @@ private fun downloadOfflineRegion(context: Context, onMessage: (String) -> Unit)
 @Composable
 private fun StampSheetContent(
     stamp: StampPoint,
-    collected: Boolean,
-    onCollect: () -> Unit,
-    onRemove: () -> Unit
+    collectionHistory: List<UserHikeStamp>,
+    onCollectToday: () -> Unit,
+    onRemoveAll: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -421,12 +474,54 @@ private fun StampSheetContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Spacer(Modifier.height(8.dp))
+
+        // Collection history
+        if (collectionHistory.isNotEmpty()) {
+            Spacer(Modifier.height(4.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "Korábbi begyűjtések",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            collectionHistory.forEach { entry ->
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = entry.collectedAt,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                    if (entry.notes.isNotBlank()) {
+                        Text(
+                            text = entry.notes,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+            HorizontalDivider()
+        }
+
+        Spacer(Modifier.height(4.dp))
         Button(
-            onClick = if (collected) onRemove else onCollect,
+            onClick = onCollectToday,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text(if (collected) "Bejegyzés visszavonása" else "Bélyegző begyűjtve!")
+            Text("Begyűjt (mai dátum)")
+        }
+
+        if (collectionHistory.isNotEmpty()) {
+            androidx.compose.material3.TextButton(
+                onClick = onRemoveAll,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text("Összes bejegyzés törlése")
+            }
         }
     }
 }

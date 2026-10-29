@@ -4,7 +4,8 @@ import androidx.lifecycle.LiveData
 import hu.kektura.app.data.db.AppDatabase
 import hu.kektura.app.data.model.GpxSegment
 import hu.kektura.app.data.model.StampPoint
-import hu.kektura.app.data.model.UserStamp
+import hu.kektura.app.data.model.UserHike
+import hu.kektura.app.data.model.UserHikeStamp
 import hu.kektura.app.util.GpxParser
 
 class TrailRepository(private val db: AppDatabase) {
@@ -59,17 +60,42 @@ class TrailRepository(private val db: AppDatabase) {
         db.stampPointDao().insertAll(points)
     }
 
-    // ── User collected stamps ─────────────────────────────────────────────────
+    // ── User hike model ───────────────────────────────────────────────────────
 
+    /** Distinct stamp point IDs from all hikes — drives dot colours on the map. */
     val collectedPointIds: LiveData<List<Int>> =
-        db.userStampDao().getCollectedIdSetLive()
+        db.userHikeDao().getCollectedStampIdsLive()
 
-    suspend fun collectStamp(stampPointId: Int) {
-        db.userStampDao().insert(UserStamp(stampPointId = stampPointId))
+    /** All hike stamps ordered by hikeId/order — used for section-completion computation. */
+    val allHikeStamps: LiveData<List<UserHikeStamp>> =
+        db.userHikeDao().getAllHikeStampsLive()
+
+    /**
+     * Records [stampPointId] for [date] (ISO "yyyy-MM-dd").
+     * All stamps on the same date are grouped into one hike entry automatically.
+     * The same stamp can be recorded on multiple dates (shared endpoint support).
+     * Duplicate within the same day's hike is silently ignored.
+     */
+    suspend fun recordStamp(stampPointId: Int, date: String, notes: String = "") {
+        val hikeId = db.userHikeDao().getHikeByDate(date)?.id
+            ?: db.userHikeDao().insertHike(UserHike(date = date)).toInt()
+        if (db.userHikeDao().getStampInHike(hikeId, stampPointId) != null) return
+        val maxOrder = db.userHikeDao().getMaxOrderForHike(hikeId) ?: 0
+        db.userHikeDao().insertHikeStamp(
+            UserHikeStamp(
+                hikeId = hikeId,
+                stampPointId = stampPointId,
+                order = maxOrder + 1,
+                collectedAt = date,
+                notes = notes
+            )
+        )
     }
 
-    suspend fun removeStamp(pointId: Int) {
-        db.userStampDao().deleteByPointId(pointId)
+    /** Removes ALL collection records for [stampPointId], then prunes now-empty hikes. */
+    suspend fun removeAllStampsForPoint(stampPointId: Int) {
+        db.userHikeDao().deleteAllStampsForPoint(stampPointId)
+        db.userHikeDao().deleteEmptyHikes()
     }
 
     companion object {

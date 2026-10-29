@@ -7,7 +7,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.automirrored.filled.ViewList
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -25,10 +28,12 @@ import hu.kektura.app.ui.map.MapScreen
 import hu.kektura.app.ui.settings.SettingsScreen
 import hu.kektura.app.ui.stampdetail.StampDetailScreen
 import hu.kektura.app.ui.stamps.StampsScreen
+import hu.kektura.app.ui.stats.StatsScreen
 import hu.kektura.app.ui.theme.KekturaTheme
 
 class MainActivity : ComponentActivity() {
 
+    @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -36,12 +41,24 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentDestination = navBackStackEntry?.destination
-                val showBottomBar = currentDestination?.route?.startsWith("stampDetail") != true
+
+                val screenTitle = when {
+                    currentDestination?.hierarchy?.any { it.route == "map" } == true -> "Térkép"
+                    currentDestination?.hierarchy?.any { it.route == "stamps" } == true -> "Bélyegzők"
+                    currentDestination?.hierarchy?.any { it.route == "stats" } == true -> "Statisztika"
+                    currentDestination?.hierarchy?.any { it.route == "settings" } == true -> "Beállítások"
+                    else -> ""
+                }
+                val showTopBar = screenTitle.isNotEmpty()
 
                 Scaffold(
+                    topBar = {
+                        if (showTopBar) {
+                            CenterAlignedTopAppBar(title = { Text(screenTitle) })
+                        }
+                    },
                     bottomBar = {
-                        if (showBottomBar) {
-                            NavigationBar {
+                        NavigationBar {
                                 NavigationBarItem(
                                     selected = currentDestination?.hierarchy?.any { it.route == "stamps" } == true,
                                     onClick = {
@@ -67,6 +84,18 @@ class MainActivity : ComponentActivity() {
                                     label = { Text("Térkép") }
                                 )
                                 NavigationBarItem(
+                                    selected = currentDestination?.hierarchy?.any { it.route == "stats" } == true,
+                                    onClick = {
+                                        navController.navigate("stats") {
+                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                    icon = { Icon(Icons.Default.BarChart, contentDescription = "Statisztika") },
+                                    label = { Text("Statisztika") }
+                                )
+                                NavigationBarItem(
                                     selected = currentDestination?.hierarchy?.any { it.route == "settings" } == true,
                                     onClick = {
                                         navController.navigate("settings") {
@@ -79,7 +108,6 @@ class MainActivity : ComponentActivity() {
                                     label = { Text("Beállítások") }
                                 )
                             }
-                        }
                     }
                 ) { innerPadding ->
                     NavHost(
@@ -89,6 +117,7 @@ class MainActivity : ComponentActivity() {
                     ) {
                         composable("stamps") { StampsScreen(navController = navController) }
                         composable("map") { MapScreen() }
+                        composable("stats") { StatsScreen() }
                         composable("settings") { SettingsScreen() }
                         composable("stampDetail/{segmentId}") { backStackEntry ->
                             val segmentId = backStackEntry.arguments
